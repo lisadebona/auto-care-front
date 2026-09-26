@@ -154,6 +154,93 @@ export type FeeSettings = {
   tax_on_subcontract: boolean;
 };
 
+export type EstimateOrderStatus = 'estimate' | 'invoice';
+
+export type EstimateWorkflow = 'estimates' | 'in_progress' | 'completed';
+
+export type EstimateItemType = 'part' | 'labor' | 'tire' | 'subcontract' | 'fee';
+
+export type EstimateLineItem = {
+  id?: number;
+  type: EstimateItemType;
+  description?: string | null;
+  price: string | number;
+  quantity: string | number;
+  discount?: string | number | null;
+  status?: string | null;
+  subtotal?: string;
+};
+
+export type EstimateService = {
+  id?: number;
+  name?: string | null;
+  notes?: string | null;
+  authorized?: boolean;
+  discount_percent: string | number;
+  epa_percent: string | number;
+  shop_supplies_percent: string | number;
+  tax_percent: string | number;
+  line_items: EstimateLineItem[];
+  subtotal?: string;
+};
+
+export type EstimateTotals = {
+  parts: string;
+  labor: string;
+  tires: string;
+  subcontract: string;
+  fees: string;
+  grand_total: string;
+};
+
+export type Estimate = {
+  id: number;
+  number: number;
+  display_number: string;
+  customer_id: number;
+  vehicle_id?: number | null;
+  service_writer_id?: number | null;
+  due_date?: string | null;
+  customer_comments?: string | null;
+  recommendations?: string | null;
+  po_number?: string | null;
+  completed_at?: string | null;
+  payment_terms: string;
+  order_status: EstimateOrderStatus;
+  workflow: EstimateWorkflow;
+  authorized_at?: string | null;
+  is_authorized: boolean;
+  labels?: string[] | null;
+  customer?: Pick<Customer, 'id' | 'first_name' | 'last_name' | 'name' | 'phone' | 'email'> | null;
+  vehicle?: Pick<Vehicle, 'id' | 'customer_id' | 'year' | 'make' | 'model' | 'sub_model' | 'name' | 'vin' | 'mileage'> | null;
+  service_writer?: Pick<User, 'id' | 'name'> | null;
+  services: EstimateService[];
+  totals: EstimateTotals;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type EstimateOptionItem = {
+  id: number;
+  name: string;
+  customer_id?: number;
+};
+
+export type EstimateOptions = {
+  payment_terms: string[];
+  order_statuses: EstimateOrderStatus[];
+  workflows: Array<{ value: EstimateWorkflow; label: string }>;
+  item_types: Array<{ value: EstimateItemType; label: string }>;
+  fee_defaults: {
+    epa_percent: string;
+    shop_supplies_percent: string;
+    tax_percent: string;
+  };
+  service_writers: EstimateOptionItem[];
+  customers: EstimateOptionItem[];
+  vehicles: EstimateOptionItem[];
+};
+
 export type RegisterFormData = {
   name: string;
   email: string;
@@ -163,7 +250,7 @@ export type RegisterFormData = {
 
 export type ValidationErrors = Record<string, string[]>;
 
-export type NavIcon = 'dashboard' | 'inventory' | 'people' | 'settings';
+export type NavIcon = 'dashboard' | 'inventory' | 'people' | 'settings' | 'transactions';
 
 export type NavLinkItem = {
   type: 'link';

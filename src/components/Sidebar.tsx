@@ -21,6 +21,11 @@ const icons: Record<NavIcon, ReactNode> = {
       <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM12.735 14c.618 0 1.093-.561.872-1.139a6.002 6.002 0 0 0-11.215 0c-.22.578.254 1.139.872 1.139h9.47Z" />
     </svg>
   ),
+  transactions: (
+    <svg className="shrink-0 fill-current text-violet-500" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+      <path d="M2 2.5A1.5 1.5 0 0 1 3.5 1h5A1.5 1.5 0 0 1 10 2.5V4h2.5A1.5 1.5 0 0 1 14 5.5v7A1.5 1.5 0 0 1 12.5 14h-7A1.5 1.5 0 0 1 4 12.5V11H3.5A1.5 1.5 0 0 1 2 9.5v-7ZM5.5 11v1.5a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.5-.5H10v4.5A1.5 1.5 0 0 1 8.5 11h-3ZM3.5 2a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5H8.5a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.5-.5h-5Z" />
+    </svg>
+  ),
   settings: (
     <svg className="shrink-0 fill-current text-violet-500" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
       <path d="M6.5 1.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5V3h1.5A1.5 1.5 0 0 1 12.5 4.5V6H14a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-1.5v1.5A1.5 1.5 0 0 1 11 12H9.5v1.5a.5.5 0 0 1-.5.5H7a.5.5 0 0 1-.5-.5V12H5A1.5 1.5 0 0 1 3.5 10.5V9H2a.5.5 0 0 1-.5-.5v-2A.5.5 0 0 1 2 6h1.5V4.5A1.5 1.5 0 0 1 5 3h1.5V1.5ZM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z" />

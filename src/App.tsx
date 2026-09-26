@@ -6,6 +6,8 @@ import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import Customers from './pages/Customers';
 import Vehicles from './pages/Vehicles';
+import Estimates from './pages/Estimates';
+import EstimateForm from './pages/EstimateForm';
 import Roles from './pages/Roles';
 import Permissions from './pages/Permissions';
 import Products from './pages/Products';
@@ -32,6 +34,9 @@ export default function App() {
             <Route path="/users" element={<Users />} />
             <Route path="/customers" element={<Customers />} />
             <Route path="/vehicles" element={<Vehicles />} />
+            <Route path="/estimates" element={<Estimates />} />
+            <Route path="/estimates/new" element={<EstimateForm />} />
+            <Route path="/estimates/:id" element={<EstimateForm />} />
             <Route path="/roles" element={<Roles />} />
             <Route path="/permissions" element={<Permissions />} />
             <Route path="/settings/general" element={<GeneralSettings />} />

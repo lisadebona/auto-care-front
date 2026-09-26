@@ -9,6 +9,14 @@ export const navGroups: NavItem[] = [
   },
   {
     type: 'group',
+    title: 'Transactions',
+    icon: 'transactions',
+    items: [
+      { title: 'Estimates', to: '/estimates' },
+    ],
+  },
+  {
+    type: 'group',
     title: 'Inventory',
     icon: 'inventory',
     items: [
