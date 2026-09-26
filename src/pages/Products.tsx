@@ -349,12 +349,17 @@ export default function Products() {
 
       {(isCreating || editing) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-gray-800 p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-              {editing ? 'Edit Product' : 'Create New Product'}
-            </h3>
-            {fieldErrors.form && <div className="mb-4 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">{fieldErrors.form[0]}</div>}
-            <form onSubmit={(e) => { void handleSubmit(e); }} className="space-y-4">
+          <div className="flex w-full max-w-2xl max-h-[90vh] flex-col overflow-hidden rounded-xl bg-white dark:bg-gray-800 shadow-lg">
+            <div className="shrink-0 px-6 pt-6">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                {editing ? 'Edit Product' : 'Create New Product'}
+              </h3>
+              {fieldErrors.form && (
+                <div className="mt-4 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">{fieldErrors.form[0]}</div>
+              )}
+            </div>
+            <form onSubmit={(e) => { void handleSubmit(e); }} className="flex min-h-0 flex-1 flex-col">
+              <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1" htmlFor="product-name">Name</label>
@@ -459,12 +464,13 @@ export default function Products() {
                 {fieldErrors.main_existing_image_id && <p className="mt-1 text-xs text-red-500">{fieldErrors.main_existing_image_id[0]}</p>}
                 {fieldErrors.main_new_image_index && <p className="mt-1 text-xs text-red-500">{fieldErrors.main_new_image_index[0]}</p>}
               </div>
+              </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={closeModal} className="btn border-gray-200 dark:border-gray-700/60 text-gray-600 dark:text-gray-300">
+              <div className="flex shrink-0 justify-end gap-2 border-t border-gray-100 dark:border-gray-700/60 bg-white dark:bg-gray-800 px-6 py-4">
+                <button type="button" onClick={closeModal} className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 text-gray-600 dark:text-gray-300">
                   Cancel
                 </button>
-                <button type="submit" disabled={submitting} className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 disabled:opacity-60">
+                <button type="submit" disabled={submitting} className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-60">
                   {submitting ? 'Saving…' : editing ? 'Save Changes' : 'Create'}
                 </button>
               </div>
