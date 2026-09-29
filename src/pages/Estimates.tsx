@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
+import { SortHeader, TablePagination } from '../components/TableControls';
 import apiClient from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
+import { useTableControls } from '../hooks/useTableControls';
 import type { Estimate } from '../types';
 
 function formatMoney(value: string | number | undefined): string {
@@ -18,6 +20,13 @@ export default function Estimates() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const table = useTableControls(estimates, {
+    estimate: (estimate) => estimate.number,
+    customer: (estimate) => estimate.customer?.name,
+    vehicle: (estimate) => estimate.vehicle?.name,
+    status: (estimate) => estimate.order_status,
+    total: (estimate) => Number(estimate.totals?.grand_total ?? 0),
+  });
 
   const loadEstimates = async (query = search) => {
     setLoading(true);
@@ -83,7 +92,10 @@ export default function Estimates() {
           className="form-input w-full max-w-md"
           placeholder="Search by estimate #, customer, vehicle..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            table.setPage(1);
+          }}
         />
       </div>
 
@@ -103,17 +115,19 @@ export default function Estimates() {
             <table className="w-full text-sm text-left">
               <thead className="text-xs uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/40">
                 <tr>
-                  <th className="px-5 py-3 font-semibold">Estimate</th>
-                  <th className="px-5 py-3 font-semibold">Customer</th>
-                  <th className="px-5 py-3 font-semibold">Vehicle</th>
-                  <th className="px-5 py-3 font-semibold">Status</th>
-                  <th className="px-5 py-3 font-semibold">Total</th>
+                  <th className="px-5 py-3 font-semibold w-12">#</th>
+                  <th className="px-5 py-3"><SortHeader label="Estimate" column="estimate" table={table} /></th>
+                  <th className="px-5 py-3"><SortHeader label="Customer" column="customer" table={table} /></th>
+                  <th className="px-5 py-3"><SortHeader label="Vehicle" column="vehicle" table={table} /></th>
+                  <th className="px-5 py-3"><SortHeader label="Status" column="status" table={table} /></th>
+                  <th className="px-5 py-3"><SortHeader label="Total" column="total" table={table} /></th>
                   <th className="px-5 py-3 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                {estimates.map((estimate) => (
+                {table.pageRows.map((estimate, index) => (
                   <tr key={estimate.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/20">
+                    <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                     <td className="px-5 py-3">
                       <Link
                         to={`/estimates/${estimate.id}`}
@@ -162,6 +176,7 @@ export default function Estimates() {
             </table>
           </div>
         )}
+        {!loading && <TablePagination table={table} />}
       </div>
     </ModulePage>
   );

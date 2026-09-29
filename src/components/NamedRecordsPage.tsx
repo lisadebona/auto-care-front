@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
+import { SortHeader, TablePagination } from './TableControls';
 import apiClient from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
+import { useTableControls } from '../hooks/useTableControls';
 import type { NamedRecord, ValidationErrors } from '../types';
 
 type NamedRecordsPageProps = {
@@ -31,6 +33,10 @@ export default function NamedRecordsPage({
   const [name, setName] = useState('');
   const [fieldErrors, setFieldErrors] = useState<ValidationErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  const table = useTableControls(records, {
+    name: (record) => record.name,
+    products: (record) => record.products_count ?? 0,
+  });
 
   const loadRecords = async (query = search) => {
     setLoading(true);
@@ -136,7 +142,10 @@ export default function NamedRecordsPage({
           type="search"
           placeholder={`Search ${plural.toLowerCase()}...`}
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            table.setPage(1);
+          }}
           className="form-input w-full max-w-xs"
         />
       </div>
@@ -150,19 +159,21 @@ export default function NamedRecordsPage({
           <table className="table-auto w-full">
             <thead className="text-xs font-semibold uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50">
               <tr>
-                <th className="p-2"><div className="font-semibold text-left">Name</div></th>
-                <th className="p-2"><div className="font-semibold text-left">Products</div></th>
+                <th className="p-2 w-12"><div className="font-semibold text-left">#</div></th>
+                <th className="p-2 text-left"><SortHeader label="Name" column="name" table={table} /></th>
+                <th className="p-2 text-left"><SortHeader label="Products" column="products" table={table} /></th>
                 <th className="p-2"><div className="font-semibold text-right">Actions</div></th>
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
               {records.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="p-6 text-center text-gray-500">No {plural.toLowerCase()} found.</td>
+                  <td colSpan={4} className="p-6 text-center text-gray-500">No {plural.toLowerCase()} found.</td>
                 </tr>
               )}
-              {records.map((record) => (
+              {table.pageRows.map((record, index) => (
                 <tr key={record.id}>
+                  <td className="p-2 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                   <td className="p-2 font-medium text-gray-800 dark:text-gray-100">{record.name}</td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">{record.products_count ?? 0}</td>
                   <td className="p-2 text-right whitespace-nowrap space-x-3">
@@ -194,6 +205,7 @@ export default function NamedRecordsPage({
               ))}
             </tbody>
           </table>
+          <TablePagination table={table} />
         </div>
       )}
 

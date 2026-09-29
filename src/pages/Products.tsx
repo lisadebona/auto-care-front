@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
+import { SortHeader, TablePagination } from '../components/TableControls';
 import apiClient, { postForm } from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
+import { useTableControls } from '../hooks/useTableControls';
 import type { CatalogOption, Product, ValidationErrors } from '../types';
 
 type ProductsResponse = {
@@ -87,6 +89,14 @@ export default function Products() {
   const [fieldErrors, setFieldErrors] = useState<ValidationErrors>({});
   const imageSequence = useRef(0);
   const [submitting, setSubmitting] = useState(false);
+  const table = useTableControls(products, {
+    name: (product) => product.name,
+    brand: (product) => product.brand_name,
+    category: (product) => product.category_name,
+    stock: (product) => product.stock_quantity,
+    unitPrice: (product) => Number(product.unit_price),
+    retail: (product) => Number(product.retail_price),
+  });
 
   const defaultCategoryId = useMemo(
     () => String(categories.find((category) => category.name === 'Uncategorized')?.id ?? categories[0]?.id ?? ''),
@@ -292,7 +302,10 @@ export default function Products() {
           type="search"
           placeholder="Search products..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            table.setPage(1);
+          }}
           className="form-input w-full max-w-xs"
         />
       </div>
@@ -305,23 +318,25 @@ export default function Products() {
           <table className="table-auto w-full">
             <thead className="text-xs font-semibold uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50">
               <tr>
-                <th className="p-2"><div className="font-semibold text-left">Name</div></th>
-                <th className="p-2"><div className="font-semibold text-left">Brand</div></th>
-                <th className="p-2"><div className="font-semibold text-left">Category</div></th>
-                <th className="p-2"><div className="font-semibold text-left">Stock</div></th>
-                <th className="p-2"><div className="font-semibold text-left">Unit Price</div></th>
-                <th className="p-2"><div className="font-semibold text-left">Retail</div></th>
+                <th className="p-2 w-12"><div className="font-semibold text-left">#</div></th>
+                <th className="p-2 text-left"><SortHeader label="Name" column="name" table={table} /></th>
+                <th className="p-2 text-left"><SortHeader label="Brand" column="brand" table={table} /></th>
+                <th className="p-2 text-left"><SortHeader label="Category" column="category" table={table} /></th>
+                <th className="p-2 text-left"><SortHeader label="Stock" column="stock" table={table} /></th>
+                <th className="p-2 text-left"><SortHeader label="Unit Price" column="unitPrice" table={table} /></th>
+                <th className="p-2 text-left"><SortHeader label="Retail" column="retail" table={table} /></th>
                 <th className="p-2"><div className="font-semibold text-right">Actions</div></th>
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
               {products.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="p-6 text-center text-gray-500">No products yet. Add your first product to get started.</td>
+                  <td colSpan={8} className="p-6 text-center text-gray-500">No products yet. Add your first product to get started.</td>
                 </tr>
               )}
-              {products.map((product) => (
+              {table.pageRows.map((product, index) => (
                 <tr key={product.id}>
+                  <td className="p-2 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                   <td className="p-2 font-medium text-gray-800 dark:text-gray-100">{product.name}</td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">{product.brand_name || '—'}</td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">{product.category_name || '—'}</td>
@@ -344,6 +359,7 @@ export default function Products() {
               ))}
             </tbody>
           </table>
+          <TablePagination table={table} />
         </div>
       )}
 

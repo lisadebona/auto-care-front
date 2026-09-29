@@ -2,8 +2,10 @@ import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type For
 import { useSearchParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
+import { SortHeader, TablePagination } from '../components/TableControls';
 import apiClient, { postForm } from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
+import { useTableControls } from '../hooks/useTableControls';
 import type { Customer, ValidationErrors, Vehicle, VehicleOptions } from '../types';
 
 const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -77,6 +79,13 @@ export default function Vehicles() {
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<ValidationErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  const table = useTableControls(vehicles, {
+    vehicle: (vehicle) => vehicle.name,
+    customer: (vehicle) => (vehicle.customer ? customerDisplayName(vehicle.customer) : null),
+    vin: (vehicle) => vehicle.vin,
+    mileage: (vehicle) => vehicle.mileage,
+    type: (vehicle) => vehicle.type,
+  });
 
   const loadVehicles = async (query = search, customerId = customerFilter) => {
     setLoading(true);
@@ -330,13 +339,19 @@ export default function Vehicles() {
           type="search"
           placeholder="Search vehicles..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            table.setPage(1);
+          }}
           className="form-input w-full max-w-xs"
         />
         <select
           className="form-select w-full max-w-xs"
           value={customerFilter}
-          onChange={(e) => setCustomerFilter(e.target.value)}
+          onChange={(e) => {
+            setCustomerFilter(e.target.value);
+            table.setPage(1);
+          }}
           aria-label="Filter by customer"
         >
           <option value="">All customers</option>
@@ -369,17 +384,19 @@ export default function Vehicles() {
               <table className="table-auto w-full">
                 <thead className="text-xs font-semibold uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50">
                   <tr>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Vehicle</div></th>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Customer</div></th>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">VIN</div></th>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Mileage</div></th>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Type</div></th>
+                    <th className="p-2 w-12 whitespace-nowrap"><div className="font-semibold text-left">#</div></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Vehicle" column="vehicle" table={table} /></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Customer" column="customer" table={table} /></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="VIN" column="vin" table={table} /></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Mileage" column="mileage" table={table} /></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Type" column="type" table={table} /></th>
                     <th className="p-2 whitespace-nowrap"><div className="font-semibold text-right">Actions</div></th>
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-                  {vehicles.map((vehicle) => (
+                  {table.pageRows.map((vehicle, index) => (
                     <tr key={vehicle.id}>
+                      <td className="p-2 whitespace-nowrap text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                       <td className="p-2">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-gray-100 dark:bg-gray-700">
@@ -431,6 +448,7 @@ export default function Vehicles() {
               </table>
             </div>
           )}
+          {!loading && !error && <TablePagination table={table} className="-mx-3 -mb-3 mt-3" />}
         </div>
       </div>
 

@@ -1,6 +1,8 @@
 import type { MouseEventHandler } from 'react';
+import { useTableControls, type SortAccessors } from '../hooks/useTableControls';
 import type { TableColumn } from '../types';
 import ModulePage from './ModulePage';
+import { SortHeader, TablePagination } from './TableControls';
 
 type EmptyRecordsCardProps = {
   title: string;
@@ -51,6 +53,14 @@ export function RecordsTable<T extends { id: string | number }>({
   rows,
   emptyMessage = 'No records found.',
 }: RecordsTableProps<T>) {
+  const accessors: SortAccessors<T> = {};
+  columns.forEach((column) => {
+    if (column.sortValue) {
+      accessors[column.key] = column.sortValue;
+    }
+  });
+  const table = useTableControls(rows, accessors);
+
   if (!rows.length) {
     return (
       <div className="bg-white dark:bg-gray-800 shadow-xs rounded-xl">
@@ -67,16 +77,22 @@ export function RecordsTable<T extends { id: string | number }>({
         <table className="table-auto w-full">
           <thead className="text-xs font-semibold uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50">
             <tr>
+              <th className="p-2 w-12 whitespace-nowrap">
+                <div className="font-semibold text-left">#</div>
+              </th>
               {columns.map((column) => (
-                <th key={column.key} className="p-2 whitespace-nowrap">
-                  <div className="font-semibold text-left">{column.label}</div>
+                <th key={column.key} className="p-2 whitespace-nowrap text-left">
+                  {column.sortValue
+                    ? <SortHeader label={column.label} column={column.key} table={table} />
+                    : <div className="font-semibold text-left">{column.label}</div>}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-            {rows.map((row) => (
+            {table.pageRows.map((row, index) => (
               <tr key={row.id}>
+                <td className="p-2 whitespace-nowrap text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                 {columns.map((column) => (
                   <td key={column.key} className="p-2 whitespace-nowrap text-gray-700 dark:text-gray-300">
                     {column.render
@@ -89,6 +105,7 @@ export function RecordsTable<T extends { id: string | number }>({
           </tbody>
         </table>
       </div>
+      <TablePagination table={table} />
     </div>
   );
 }

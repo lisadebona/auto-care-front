@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
 import DashboardLayout from '../components/DashboardLayout';
+import { SortHeader, TablePagination } from '../components/TableControls';
 import apiClient from '../api/axios';
 import type { User, ValidationErrors } from '../types';
 import { formatRoleName } from '../utils/format';
 import { usePermission } from '../hooks/usePermission';
+import { useTableControls } from '../hooks/useTableControls';
 
 const TECHNICIAN_ROLE = 'technician';
 
@@ -34,6 +36,7 @@ const emptyForm = (): UserForm => ({
 
 export default function Users() {
   const [users, setUsers] = useState<User[]>([]);
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -44,6 +47,13 @@ export default function Users() {
   const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<UserTab>('details');
   const { hasPermission } = usePermission();
+  const table = useTableControls(users, {
+    name: (user) => user.name,
+    email: (user) => user.email,
+    phone: (user) => user.phone,
+    roles: (user) => (user.roles ?? []).map(formatRoleName).join(', '),
+    joined: (user) => (user.created_at ? Date.parse(user.created_at) : null),
+  });
   const canAssignRoles = hasPermission('roles.edit');
   const hasTechnicianRole = form.roles.includes(TECHNICIAN_ROLE);
   const showRatesTab = editingUser !== null && hasTechnicianRole;
@@ -54,11 +64,13 @@ export default function Users() {
   const exampleHourlyLabel = form.hourly_rate.trim() === '' ? '100' : form.hourly_rate.replace(/\.00$/, '');
   const exampleLaborCost = (4 * exampleHourlyRate).toFixed(2).replace(/\.00$/, '');
 
-  const loadUsers = useCallback(async () => {
+  const loadUsers = useCallback(async (query = '') => {
     setLoading(true);
     setError('');
     try {
-      const response = await apiClient.get<User[]>('/api/users');
+      const response = await apiClient.get<User[]>('/api/users', {
+        params: query ? { search: query } : {},
+      });
       setUsers(response.data);
     } catch (err: unknown) {
       if (isAxiosError(err)) {
@@ -73,8 +85,12 @@ export default function Users() {
   }, []);
 
   useEffect(() => {
-    void loadUsers();
-  }, [loadUsers]);
+    const timer = window.setTimeout(() => {
+      void loadUsers(search);
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [loadUsers, search]);
 
   useEffect(() => {
     if (!showRatesTab && activeTab === 'rates') {
@@ -163,7 +179,7 @@ export default function Users() {
         await apiClient.post('/api/users', payload);
       }
       closeModal();
-      await loadUsers();
+      await loadUsers(search);
     } catch (err: unknown) {
       if (isAxiosError(err) && err.response?.status === 422) {
         const errors = (err.response.data as { errors?: ValidationErrors }).errors ?? {};
@@ -200,6 +216,19 @@ export default function Users() {
         </button>
       </div>
 
+      <div className="mb-4">
+        <input
+          type="search"
+          placeholder="Search by name, email, phone, role..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            table.setPage(1);
+          }}
+          className="form-input w-full max-w-md"
+        />
+      </div>
+
       <div className="bg-white dark:bg-gray-800 shadow-xs rounded-xl">
         <header className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/60">
           <h2 className="font-semibold text-gray-800 dark:text-gray-100">Users</h2>
@@ -223,17 +252,19 @@ export default function Users() {
               <table className="table-auto w-full">
                 <thead className="text-xs font-semibold uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50">
                   <tr>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Name</div></th>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Email</div></th>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Phone</div></th>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Roles</div></th>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Joined</div></th>
+                    <th className="p-2 w-12 whitespace-nowrap"><div className="font-semibold text-left">#</div></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Name" column="name" table={table} /></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Email" column="email" table={table} /></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Phone" column="phone" table={table} /></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Roles" column="roles" table={table} /></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Joined" column="joined" table={table} /></th>
                     <th className="p-2 whitespace-nowrap"><div className="font-semibold text-right">Actions</div></th>
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-                  {users.map((user) => (
+                  {table.pageRows.map((user, index) => (
                     <tr key={user.id}>
+                      <td className="p-2 whitespace-nowrap text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                       <td className="p-2 whitespace-nowrap">
                         <div className="font-medium text-gray-800 dark:text-gray-100">{user.name}</div>
                       </td>
@@ -258,6 +289,7 @@ export default function Users() {
               </table>
             </div>
           )}
+          {!loading && !error && <TablePagination table={table} className="-mx-3 -mb-3 mt-3" />}
         </div>
       </div>
 

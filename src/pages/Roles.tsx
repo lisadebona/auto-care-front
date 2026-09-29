@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
+import { SortHeader, TablePagination } from '../components/TableControls';
 import apiClient from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
+import { useTableControls } from '../hooks/useTableControls';
 import type { Role, ValidationErrors } from '../types';
 import { formatRoleName } from '../utils/format';
 
@@ -28,6 +30,11 @@ export default function Roles() {
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState<RoleForm>({ name: '', permissions: [] });
+  const table = useTableControls(roles, {
+    name: (role) => formatRoleName(role.name),
+    permissions: (role) => role.permissions.length,
+    users: (role) => role.users_count,
+  });
   const [fieldErrors, setFieldErrors] = useState<ValidationErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -143,7 +150,10 @@ export default function Roles() {
           type="search"
           placeholder="Search roles..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            table.setPage(1);
+          }}
           className="form-input w-full max-w-xs"
         />
       </div>
@@ -156,20 +166,22 @@ export default function Roles() {
           <table className="table-auto w-full">
             <thead className="text-xs font-semibold uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50">
               <tr>
-                <th className="p-2"><div className="font-semibold text-left">Name</div></th>
-                <th className="p-2"><div className="font-semibold text-left">Permissions</div></th>
-                <th className="p-2"><div className="font-semibold text-left">Users</div></th>
+                <th className="p-2 w-12"><div className="font-semibold text-left">#</div></th>
+                <th className="p-2 text-left"><SortHeader label="Name" column="name" table={table} /></th>
+                <th className="p-2 text-left"><SortHeader label="Permissions" column="permissions" table={table} /></th>
+                <th className="p-2 text-left"><SortHeader label="Users" column="users" table={table} /></th>
                 <th className="p-2"><div className="font-semibold text-right">Actions</div></th>
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
               {roles.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="p-6 text-center text-gray-500">No roles found.</td>
+                  <td colSpan={5} className="p-6 text-center text-gray-500">No roles found.</td>
                 </tr>
               )}
-              {roles.map((role) => (
+              {table.pageRows.map((role, index) => (
                 <tr key={role.id}>
+                  <td className="p-2 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                   <td className="p-2 font-medium text-gray-800 dark:text-gray-100 whitespace-nowrap">{formatRoleName(role.name)}</td>
                   <td className="p-2">
                     <div className="flex flex-wrap gap-1">
@@ -211,6 +223,7 @@ export default function Roles() {
               ))}
             </tbody>
           </table>
+          <TablePagination table={table} />
         </div>
       )}
 

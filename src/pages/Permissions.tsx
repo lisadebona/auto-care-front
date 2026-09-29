@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
+import { SortHeader, TablePagination } from '../components/TableControls';
 import apiClient from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
+import { useTableControls } from '../hooks/useTableControls';
 import type { Permission, ValidationErrors } from '../types';
 
 export default function Permissions() {
@@ -16,6 +18,11 @@ export default function Permissions() {
   const [name, setName] = useState('');
   const [fieldErrors, setFieldErrors] = useState<ValidationErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  const table = useTableControls(permissions, {
+    name: (permission) => permission.name,
+    roles: (permission) => permission.roles_count,
+    created: (permission) => (permission.created_at ? Date.parse(permission.created_at) : null),
+  });
 
   const loadPermissions = async (query = search) => {
     setLoading(true);
@@ -122,7 +129,10 @@ export default function Permissions() {
           type="search"
           placeholder="Search permissions..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            table.setPage(1);
+          }}
           className="form-input w-full max-w-xs"
         />
       </div>
@@ -135,20 +145,22 @@ export default function Permissions() {
           <table className="table-auto w-full">
             <thead className="text-xs font-semibold uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50">
               <tr>
-                <th className="p-2"><div className="font-semibold text-left">Name</div></th>
-                <th className="p-2"><div className="font-semibold text-left">Roles</div></th>
-                <th className="p-2"><div className="font-semibold text-left">Created</div></th>
+                <th className="p-2 w-12"><div className="font-semibold text-left">#</div></th>
+                <th className="p-2 text-left"><SortHeader label="Name" column="name" table={table} /></th>
+                <th className="p-2 text-left"><SortHeader label="Roles" column="roles" table={table} /></th>
+                <th className="p-2 text-left"><SortHeader label="Created" column="created" table={table} /></th>
                 <th className="p-2"><div className="font-semibold text-right">Actions</div></th>
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
               {permissions.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="p-6 text-center text-gray-500">No permissions found.</td>
+                  <td colSpan={5} className="p-6 text-center text-gray-500">No permissions found.</td>
                 </tr>
               )}
-              {permissions.map((permission) => (
+              {table.pageRows.map((permission, index) => (
                 <tr key={permission.id}>
+                  <td className="p-2 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                   <td className="p-2 font-medium text-gray-800 dark:text-gray-100">{permission.name}</td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">{permission.roles_count}</td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">{formatDate(permission.created_at)}</td>
@@ -181,6 +193,7 @@ export default function Permissions() {
               ))}
             </tbody>
           </table>
+          <TablePagination table={table} />
         </div>
       )}
 

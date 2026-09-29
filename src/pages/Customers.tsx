@@ -2,8 +2,10 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
+import { SortHeader, TablePagination } from '../components/TableControls';
 import apiClient from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
+import { useTableControls } from '../hooks/useTableControls';
 import type { Customer, ValidationErrors, Vehicle } from '../types';
 import { formatUsPhone } from '../utils/format';
 
@@ -160,6 +162,24 @@ export default function Customers() {
   const [customerVehicles, setCustomerVehicles] = useState<Vehicle[]>([]);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const [vehiclesError, setVehiclesError] = useState('');
+  const table = useTableControls(customers, {
+    name: (customer) => customer.name,
+    phone: (customer) => customer.phone,
+    email: (customer) => customer.email,
+    address: (customer) => [
+      customer.home_address,
+      customer.home_city,
+      customer.home_state,
+      customer.home_zip_code,
+      customer.home_country,
+    ].filter(Boolean).join(', '),
+  });
+  const vehiclesTable = useTableControls(customerVehicles, {
+    vehicle: (vehicle) => vehicle.name,
+    vin: (vehicle) => vehicle.vin,
+    mileage: (vehicle) => vehicle.mileage,
+    type: (vehicle) => vehicle.type,
+  });
 
   const loadCustomers = async (query = search) => {
     setLoading(true);
@@ -357,7 +377,10 @@ export default function Customers() {
           type="search"
           placeholder="Search customers..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            table.setPage(1);
+          }}
           className="form-input w-full max-w-xs"
         />
       </div>
@@ -385,16 +408,18 @@ export default function Customers() {
               <table className="table-auto w-full">
                 <thead className="text-xs font-semibold uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50">
                   <tr>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Name</div></th>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Phone</div></th>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Email</div></th>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Home Address</div></th>
+                    <th className="p-2 w-12 whitespace-nowrap"><div className="font-semibold text-left">#</div></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Name" column="name" table={table} /></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Phone" column="phone" table={table} /></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Email" column="email" table={table} /></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Home Address" column="address" table={table} /></th>
                     <th className="p-2 whitespace-nowrap"><div className="font-semibold text-right">Actions</div></th>
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-                  {customers.map((customer) => (
+                  {table.pageRows.map((customer, index) => (
                     <tr key={customer.id}>
+                      <td className="p-2 whitespace-nowrap text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                       <td className="p-2 whitespace-nowrap">
                         <div className="font-medium text-gray-800 dark:text-gray-100">{customer.name}</div>
                       </td>
@@ -435,6 +460,7 @@ export default function Customers() {
               </table>
             </div>
           )}
+          {!loading && !error && <TablePagination table={table} className="-mx-3 -mb-3 mt-3" />}
         </div>
       </div>
 
@@ -612,15 +638,17 @@ export default function Customers() {
                             <table className="table-auto w-full">
                               <thead className="text-xs font-semibold uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50">
                                 <tr>
-                                  <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Vehicle</div></th>
-                                  <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">VIN</div></th>
-                                  <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Mileage</div></th>
-                                  <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Type</div></th>
+                                  <th className="p-2 w-12 whitespace-nowrap"><div className="font-semibold text-left">#</div></th>
+                                  <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Vehicle" column="vehicle" table={vehiclesTable} /></th>
+                                  <th className="p-2 whitespace-nowrap text-left"><SortHeader label="VIN" column="vin" table={vehiclesTable} /></th>
+                                  <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Mileage" column="mileage" table={vehiclesTable} /></th>
+                                  <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Type" column="type" table={vehiclesTable} /></th>
                                 </tr>
                               </thead>
                               <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-                                {customerVehicles.map((vehicle) => (
+                                {vehiclesTable.pageRows.map((vehicle, index) => (
                                   <tr key={vehicle.id}>
+                                    <td className="p-2 whitespace-nowrap text-gray-500 dark:text-gray-400">{vehiclesTable.offset + index + 1}</td>
                                     <td className="p-2">
                                       <div className="font-medium text-gray-800 dark:text-gray-100">{vehicle.name}</div>
                                       {vehicle.engine_size && (
@@ -636,6 +664,7 @@ export default function Customers() {
                                 ))}
                               </tbody>
                             </table>
+                            <TablePagination table={vehiclesTable} />
                           </div>
                         )}
                       </>

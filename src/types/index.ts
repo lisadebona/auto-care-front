@@ -275,6 +275,7 @@ export type TableColumn<T extends { id: string | number }> = {
   key: string;
   label: string;
   render?: (row: T) => ReactNode;
+  sortValue?: (row: T) => string | number | boolean | null | undefined;
 };
 
 export type ThemeName = 'light' | 'dark';

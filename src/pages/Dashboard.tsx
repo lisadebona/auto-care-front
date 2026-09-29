@@ -1,5 +1,7 @@
 import DashboardLayout from '../components/DashboardLayout';
+import { SortHeader, TablePagination } from '../components/TableControls';
 import { useAuth } from '../context/AuthContext';
+import { useTableControls } from '../hooks/useTableControls';
 
 type JobStatus = 'In progress' | 'Waiting parts' | 'Ready' | 'Diagnosing';
 
@@ -26,6 +28,12 @@ const statusClass: Record<JobStatus, string> = {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const table = useTableControls(jobs, {
+    order: (job) => job.id,
+    customer: (job) => job.customer,
+    vehicle: (job) => job.vehicle,
+    status: (job) => job.status,
+  });
 
   return (
     <DashboardLayout>
@@ -56,15 +64,17 @@ export default function Dashboard() {
               <table className="table-auto w-full">
                 <thead className="text-xs font-semibold uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50">
                   <tr>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Order</div></th>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Customer</div></th>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Vehicle</div></th>
-                    <th className="p-2 whitespace-nowrap"><div className="font-semibold text-left">Status</div></th>
+                    <th className="p-2 w-12 whitespace-nowrap"><div className="font-semibold text-left">#</div></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Order" column="order" table={table} /></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Customer" column="customer" table={table} /></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Vehicle" column="vehicle" table={table} /></th>
+                    <th className="p-2 whitespace-nowrap text-left"><SortHeader label="Status" column="status" table={table} /></th>
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-                  {jobs.map((job) => (
+                  {table.pageRows.map((job, index) => (
                     <tr key={job.id}>
+                      <td className="p-2 whitespace-nowrap text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                       <td className="p-2 whitespace-nowrap">
                         <div className="font-medium text-gray-800 dark:text-gray-100">{job.id}</div>
                       </td>
@@ -80,6 +90,7 @@ export default function Dashboard() {
                 </tbody>
               </table>
             </div>
+            <TablePagination table={table} className="-mx-3 -mb-3 mt-3" />
           </div>
         </div>
       </div>

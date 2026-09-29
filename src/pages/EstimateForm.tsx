@@ -779,6 +779,7 @@ export default function EstimateForm() {
                       <table className="w-full text-sm">
                         <thead className="text-xs uppercase text-gray-500 bg-gray-50 dark:bg-gray-900/40">
                           <tr>
+                            <th className="px-4 py-2 text-left font-semibold w-12">#</th>
                             <th className="px-4 py-2 text-left font-semibold">Items</th>
                             <th className="px-4 py-2 text-left font-semibold w-28">Price</th>
                             <th className="px-4 py-2 text-left font-semibold w-24">Qty / Hrs</th>
@@ -789,8 +790,9 @@ export default function EstimateForm() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                          {service.line_items.map((item) => (
+                          {service.line_items.map((item, index) => (
                             <tr key={item.key}>
+                              <td className="px-4 py-2 text-gray-500 dark:text-gray-400">{index + 1}</td>
                               <td className="px-4 py-2">
                                 <div className="flex items-center gap-2">
                                   <input
