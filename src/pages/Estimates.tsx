@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
 import { SortHeader, TablePagination } from '../components/TableControls';
+import { DeleteButton, EditButton } from '../components/ActionButtons';
 import apiClient from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
 import { useTableControls } from '../hooks/useTableControls';
@@ -150,24 +151,16 @@ export default function Estimates() {
                     <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">
                       {formatMoney(estimate.totals?.grand_total)}
                     </td>
-                    <td className="px-5 py-3 text-right space-x-2">
+                    <td className="px-5 py-3 text-right space-x-1">
                       {hasPermission('estimates.edit') && (
-                        <button
-                          type="button"
+                        <EditButton
                           onClick={() => navigate(`/estimates/${estimate.id}`)}
-                          className="text-violet-600 dark:text-violet-400 hover:underline"
-                        >
-                          Edit
-                        </button>
+                        />
                       )}
                       {hasPermission('estimates.delete') && (
-                        <button
-                          type="button"
+                        <DeleteButton
                           onClick={() => { void handleDelete(estimate); }}
-                          className="text-red-500 hover:underline"
-                        >
-                          Delete
-                        </button>
+                        />
                       )}
                     </td>
                   </tr>

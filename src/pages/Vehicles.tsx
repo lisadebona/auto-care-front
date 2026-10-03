@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
 import { SortHeader, TablePagination } from '../components/TableControls';
+import { DeleteButton, EditButton } from '../components/ActionButtons';
 import apiClient, { postForm } from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
 import { useTableControls } from '../hooks/useTableControls';
@@ -422,24 +423,16 @@ export default function Vehicles() {
                         {vehicle.mileage != null ? vehicle.mileage.toLocaleString() : '—'}
                       </td>
                       <td className="p-2 whitespace-nowrap text-gray-600 dark:text-gray-300">{vehicle.type}</td>
-                      <td className="p-2 whitespace-nowrap text-right space-x-3">
+                      <td className="p-2 whitespace-nowrap text-right space-x-1">
                         {hasPermission('vehicles.edit') && (
-                          <button
-                            type="button"
+                          <EditButton
                             onClick={() => openEdit(vehicle)}
-                            className="text-sm font-medium text-violet-500 hover:text-violet-600"
-                          >
-                            Edit
-                          </button>
+                          />
                         )}
                         {hasPermission('vehicles.delete') && (
-                          <button
-                            type="button"
+                          <DeleteButton
                             onClick={() => { void handleDelete(vehicle); }}
-                            className="text-sm font-medium text-red-500 hover:text-red-600"
-                          >
-                            Delete
-                          </button>
+                          />
                         )}
                       </td>
                     </tr>

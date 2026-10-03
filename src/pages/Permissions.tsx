@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
 import { SortHeader, TablePagination } from '../components/TableControls';
+import { DeleteButton, EditButton } from '../components/ActionButtons';
 import apiClient from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
 import { useTableControls } from '../hooks/useTableControls';
@@ -164,29 +165,21 @@ export default function Permissions() {
                   <td className="p-2 font-medium text-gray-800 dark:text-gray-100">{permission.name}</td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">{permission.roles_count}</td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">{formatDate(permission.created_at)}</td>
-                  <td className="p-2 text-right whitespace-nowrap space-x-3">
+                  <td className="p-2 text-right whitespace-nowrap space-x-1">
                     {hasPermission('permissions.edit') && (
-                      <button
-                        type="button"
+                      <EditButton
                         onClick={() => {
                           setFieldErrors({});
                           setEditingPermission(permission);
                           setIsCreating(false);
                           setName(permission.name);
                         }}
-                        className="text-sm font-medium text-violet-500 hover:text-violet-600"
-                      >
-                        Edit
-                      </button>
+                      />
                     )}
                     {hasPermission('permissions.delete') && (
-                      <button
-                        type="button"
+                      <DeleteButton
                         onClick={() => { void handleDelete(permission); }}
-                        className="text-sm font-medium text-red-500 hover:text-red-600"
-                      >
-                        Delete
-                      </button>
+                      />
                     )}
                   </td>
                 </tr>

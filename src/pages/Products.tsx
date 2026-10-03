@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
 import { SortHeader, TablePagination } from '../components/TableControls';
+import { DeleteButton, EditButton } from '../components/ActionButtons';
 import apiClient, { postForm } from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
 import { useTableControls } from '../hooks/useTableControls';
@@ -343,16 +344,12 @@ export default function Products() {
                   <td className="p-2 text-gray-600 dark:text-gray-300">{product.stock_quantity}</td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">${product.unit_price}</td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">${product.retail_price}</td>
-                  <td className="p-2 text-right whitespace-nowrap space-x-3">
+                  <td className="p-2 text-right whitespace-nowrap space-x-1">
                     {hasPermission('products.edit') && (
-                      <button type="button" onClick={() => openEdit(product)} className="text-sm font-medium text-violet-500 hover:text-violet-600">
-                        Edit
-                      </button>
+                      <EditButton onClick={() => openEdit(product)} />
                     )}
                     {hasPermission('products.delete') && (
-                      <button type="button" onClick={() => { void handleDelete(product); }} className="text-sm font-medium text-red-500 hover:text-red-600">
-                        Delete
-                      </button>
+                      <DeleteButton onClick={() => { void handleDelete(product); }} />
                     )}
                   </td>
                 </tr>

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
 import { SortHeader, TablePagination } from '../components/TableControls';
+import { DeleteButton, EditButton } from '../components/ActionButtons';
 import apiClient from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
 import { useTableControls } from '../hooks/useTableControls';
@@ -194,29 +195,21 @@ export default function Roles() {
                     </div>
                   </td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">{role.users_count}</td>
-                  <td className="p-2 text-right whitespace-nowrap space-x-3">
+                  <td className="p-2 text-right whitespace-nowrap space-x-1">
                     {hasPermission('roles.edit') && (
-                      <button
-                        type="button"
+                      <EditButton
                         onClick={() => {
                           setFieldErrors({});
                           setEditingRole(role);
                           setIsCreating(false);
                           setForm({ name: role.name, permissions: role.permissions });
                         }}
-                        className="text-sm font-medium text-violet-500 hover:text-violet-600"
-                      >
-                        Edit
-                      </button>
+                      />
                     )}
                     {hasPermission('roles.delete') && role.name !== SUPER_ADMIN_ROLE && (
-                      <button
-                        type="button"
+                      <DeleteButton
                         onClick={() => { void handleDelete(role); }}
-                        className="text-sm font-medium text-red-500 hover:text-red-600"
-                      >
-                        Delete
-                      </button>
+                      />
                     )}
                   </td>
                 </tr>

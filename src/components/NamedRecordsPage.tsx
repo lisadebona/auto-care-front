@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
 import { SortHeader, TablePagination } from './TableControls';
+import { DeleteButton, EditButton } from './ActionButtons';
 import apiClient from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
 import { useTableControls } from '../hooks/useTableControls';
@@ -176,29 +177,21 @@ export default function NamedRecordsPage({
                   <td className="p-2 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                   <td className="p-2 font-medium text-gray-800 dark:text-gray-100">{record.name}</td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">{record.products_count ?? 0}</td>
-                  <td className="p-2 text-right whitespace-nowrap space-x-3">
+                  <td className="p-2 text-right whitespace-nowrap space-x-1">
                     {hasPermission(`${permissionPrefix}.edit`) && (
-                      <button
-                        type="button"
+                      <EditButton
                         onClick={() => {
                           setFieldErrors({});
                           setEditing(record);
                           setIsCreating(false);
                           setName(record.name);
                         }}
-                        className="text-sm font-medium text-violet-500 hover:text-violet-600"
-                      >
-                        Edit
-                      </button>
+                      />
                     )}
                     {hasPermission(`${permissionPrefix}.delete`) && (
-                      <button
-                        type="button"
+                      <DeleteButton
                         onClick={() => { void handleDelete(record); }}
-                        className="text-sm font-medium text-red-500 hover:text-red-600"
-                      >
-                        Delete
-                      </button>
+                      />
                     )}
                   </td>
                 </tr>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
 import { SortHeader, TablePagination } from '../components/TableControls';
+import { DeleteButton, EditButton } from '../components/ActionButtons';
 import apiClient from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
 import { useTableControls } from '../hooks/useTableControls';
@@ -434,24 +435,16 @@ export default function Customers() {
                           customer.home_country,
                         ])}
                       </td>
-                      <td className="p-2 whitespace-nowrap text-right space-x-3">
+                      <td className="p-2 whitespace-nowrap text-right space-x-1">
                         {hasPermission('customers.edit') && (
-                          <button
-                            type="button"
+                          <EditButton
                             onClick={() => openEdit(customer)}
-                            className="text-sm font-medium text-violet-500 hover:text-violet-600"
-                          >
-                            Edit
-                          </button>
+                          />
                         )}
                         {hasPermission('customers.delete') && (
-                          <button
-                            type="button"
+                          <DeleteButton
                             onClick={() => { void handleDelete(customer); }}
-                            className="text-sm font-medium text-red-500 hover:text-red-600"
-                          >
-                            Delete
-                          </button>
+                          />
                         )}
                       </td>
                     </tr>

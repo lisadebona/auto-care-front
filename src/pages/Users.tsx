@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
 import DashboardLayout from '../components/DashboardLayout';
 import { SortHeader, TablePagination } from '../components/TableControls';
+import { EditButton } from '../components/ActionButtons';
 import apiClient from '../api/axios';
 import type { User, ValidationErrors } from '../types';
 import { formatRoleName } from '../utils/format';
@@ -275,13 +276,9 @@ export default function Users() {
                       </td>
                       <td className="p-2 whitespace-nowrap text-gray-600 dark:text-gray-300">{formatDate(user.created_at)}</td>
                       <td className="p-2 whitespace-nowrap text-right">
-                        <button
-                          type="button"
+                        <EditButton
                           onClick={() => openEdit(user)}
-                          className="text-sm font-medium text-violet-500 hover:text-violet-600"
-                        >
-                          Edit
-                        </button>
+                        />
                       </td>
                     </tr>
                   ))}
