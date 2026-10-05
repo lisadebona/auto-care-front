@@ -11,6 +11,8 @@ import EstimateForm from './pages/EstimateForm';
 import Roles from './pages/Roles';
 import Permissions from './pages/Permissions';
 import Products from './pages/Products';
+import CannedJobs from './pages/CannedJobs';
+import CannedJobForm from './pages/CannedJobForm';
 import Brands from './pages/Brands';
 import Categories from './pages/Categories';
 import GeneralSettings from './pages/GeneralSettings';
@@ -29,6 +31,9 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/products" element={<Products />} />
+            <Route path="/canned-jobs" element={<CannedJobs />} />
+            <Route path="/canned-jobs/new" element={<CannedJobForm />} />
+            <Route path="/canned-jobs/:id" element={<CannedJobForm />} />
             <Route path="/brands" element={<Brands />} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/users" element={<Users />} />

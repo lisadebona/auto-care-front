@@ -21,6 +21,7 @@ export const navGroups: NavItem[] = [
     icon: 'inventory',
     items: [
       { title: 'Products', to: '/products' },
+      { title: 'Canned Jobs', to: '/canned-jobs' },
       { title: 'Brands', to: '/brands' },
       { title: 'Categories', to: '/categories' },
     ],

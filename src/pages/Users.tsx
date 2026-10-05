@@ -11,6 +11,25 @@ import { useTableControls } from '../hooks/useTableControls';
 
 const TECHNICIAN_ROLE = 'technician';
 
+function PasswordVisibilityIcon({ visible }: { visible: boolean }) {
+  if (visible) {
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+        <path d="M3 3.5 17 16.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M8.2 8.4A2.2 2.2 0 0 0 11.7 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M6.1 6.4C4.4 7.5 3.1 9.1 2.4 10c1.6 2.4 4.4 5 7.6 5 1.1 0 2.2-.3 3.2-.8M8.6 5.2A8 8 0 0 1 10 5c3.2 0 6 2.6 7.6 5-.4.7-1 1.4-1.6 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+      <path d="M2.4 10c1.6-2.4 4.4-5 7.6-5s6 2.6 7.6 5c-1.6 2.4-4.4 5-7.6 5s-6-2.6-7.6-5Z" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="10" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 type UserTab = 'details' | 'rates';
 
 type UserForm = {
@@ -47,6 +66,8 @@ export default function Users() {
   const [submitting, setSubmitting] = useState(false);
   const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<UserTab>('details');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
   const { hasPermission } = usePermission();
   const table = useTableControls(users, {
     name: (user) => user.name,
@@ -131,17 +152,23 @@ export default function Users() {
     setForm(emptyForm());
     setFieldErrors({});
     setActiveTab('details');
+    setShowPassword(false);
+    setShowPasswordConfirmation(false);
   };
 
   const openCreate = () => {
     setFieldErrors({});
     setForm(emptyForm());
     setEditingUser(null);
+    setShowPassword(false);
+    setShowPasswordConfirmation(false);
     setIsCreating(true);
   };
 
   const openEdit = (user: User) => {
     setFieldErrors({});
+    setShowPassword(false);
+    setShowPasswordConfirmation(false);
     setIsCreating(false);
     setEditingUser(user);
     setForm({
@@ -368,15 +395,26 @@ export default function Users() {
                 <label className="block text-sm font-medium mb-1" htmlFor="user-password">
                   {editingUser ? 'New Password' : 'Password'}
                 </label>
-                <input
-                  id="user-password"
-                  className="form-input w-full"
-                  type="password"
-                  autoComplete="new-password"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  required={!editingUser}
-                />
+                <div className="relative">
+                  <input
+                    id="user-password"
+                    className="form-input w-full pr-10"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    required={!editingUser}
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPassword}
+                  >
+                    <PasswordVisibilityIcon visible={showPassword} />
+                  </button>
+                </div>
                 {editingUser && (
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave blank to keep the current password.</p>
                 )}
@@ -388,14 +426,25 @@ export default function Users() {
                   <label className="block text-sm font-medium mb-1" htmlFor="user-password-confirmation">
                     Confirm New Password
                   </label>
-                  <input
-                    id="user-password-confirmation"
-                    className="form-input w-full"
-                    type="password"
-                    autoComplete="new-password"
-                    value={form.password_confirmation}
-                    onChange={(e) => setForm({ ...form, password_confirmation: e.target.value })}
-                  />
+                  <div className="relative">
+                    <input
+                      id="user-password-confirmation"
+                      className="form-input w-full pr-10"
+                      type={showPasswordConfirmation ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={form.password_confirmation}
+                      onChange={(e) => setForm({ ...form, password_confirmation: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                      onClick={() => setShowPasswordConfirmation((current) => !current)}
+                      aria-label={showPasswordConfirmation ? 'Hide password confirmation' : 'Show password confirmation'}
+                      aria-pressed={showPasswordConfirmation}
+                    >
+                      <PasswordVisibilityIcon visible={showPasswordConfirmation} />
+                    </button>
+                  </div>
                 </div>
               )}
 

@@ -168,6 +168,7 @@ export type EstimateLineItem = {
   quantity: string | number;
   discount?: string | number | null;
   status?: string | null;
+  remarks?: string[] | null;
   subtotal?: string;
 };
 
@@ -216,6 +217,26 @@ export type Estimate = {
   service_writer?: Pick<User, 'id' | 'name'> | null;
   services: EstimateService[];
   totals: EstimateTotals;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type CannedJobLineItem = {
+  id?: number;
+  type: EstimateItemType;
+  description?: string | null;
+  price: string | number;
+  quantity: string | number;
+  discount?: string | number | null;
+  remarks?: string[] | null;
+  subtotal?: string;
+};
+
+export type CannedJob = {
+  id: number;
+  name: string;
+  line_items: CannedJobLineItem[];
+  subtotal?: string;
   created_at?: string;
   updated_at?: string;
 };

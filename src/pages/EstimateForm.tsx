@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
+import { DeleteButton } from '../components/ActionButtons';
 import DashboardLayout from '../components/DashboardLayout';
+import { SearchableSelect } from '../components/SearchableSelect';
+import { ItemTypeIcon, ServiceLineGroups, lineItemGroupMeta, lineItemGroupOrder } from '../components/ServiceLineGroups';
 import apiClient from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { usePermission } from '../hooks/usePermission';
 import { formatUsPhone } from '../utils/format';
 import type {
+  CannedJob,
   Estimate,
   EstimateItemType,
   EstimateOptions,
@@ -25,7 +29,7 @@ type FormLineItem = {
   price: string;
   quantity: string;
   discount: string;
-  status: string;
+  remarks: string[];
 };
 
 type FormService = {
@@ -57,9 +61,6 @@ type EstimateFormState = {
 };
 
 type TabId = 'summary' | 'services' | 'messages';
-
-const NEW_CUSTOMER_VALUE = '__new_customer__';
-const NEW_VEHICLE_VALUE = '__new_vehicle__';
 
 type QuickVehicleForm = {
   year: string;
@@ -101,6 +102,7 @@ function money(value: number): string {
   return `$${value.toFixed(2)}`;
 }
 
+
 function lineSubtotal(item: FormLineItem): number {
   const gross = Number(item.price || 0) * Number(item.quantity || 0);
   const discount = Number(item.discount || 0);
@@ -125,9 +127,10 @@ function emptyLineItem(type: EstimateItemType = 'part'): FormLineItem {
     price: '0.00',
     quantity: '1',
     discount: '',
-    status: '',
+    remarks: [],
   };
 }
+
 
 function emptyService(feeDefaults?: EstimateOptions['fee_defaults']): FormService {
   return {
@@ -140,6 +143,44 @@ function emptyService(feeDefaults?: EstimateOptions['fee_defaults']): FormServic
     shop_supplies_percent: feeDefaults?.shop_supplies_percent ?? '0',
     tax_percent: feeDefaults?.tax_percent ?? '0',
     line_items: [emptyLineItem('part')],
+  };
+}
+
+function amount(value: string | number | null | undefined): string {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed.toFixed(2) : '0.00';
+}
+
+function isPlaceholderService(service: FormService): boolean {
+  return service.name.trim() === ''
+    && service.notes.trim() === ''
+    && service.line_items.every((item) => (
+      item.description.trim() === ''
+      && Number(item.price || 0) === 0
+      && item.remarks.length === 0
+    ));
+}
+
+function serviceFromCannedJob(job: CannedJob, feeDefaults?: EstimateOptions['fee_defaults']): FormService {
+  const service = emptyService(feeDefaults);
+  const lineItems = (job.line_items ?? []).filter((item) => (
+    (item.description ?? '').trim() !== '' || Number(item.price || 0) > 0
+  ));
+
+  return {
+    ...service,
+    name: job.name,
+    line_items: lineItems.length
+      ? lineItems.map((item) => ({
+        key: uid(),
+        type: item.type,
+        description: item.description ?? '',
+        price: amount(item.price),
+        quantity: amount(item.quantity ?? 1),
+        discount: item.discount == null || item.discount === '' ? '' : amount(item.discount),
+        remarks: item.remarks ?? [],
+      }))
+      : [emptyLineItem('part')],
   };
 }
 
@@ -205,7 +246,9 @@ function fromEstimate(estimate: Estimate): EstimateFormState {
         price: String(item.price ?? '0.00'),
         quantity: String(item.quantity ?? '1'),
         discount: item.discount == null || item.discount === '' ? '' : String(item.discount),
-        status: item.status ?? '',
+        remarks: item.remarks?.length
+          ? item.remarks
+          : (item.status ? [item.status] : []),
       })),
     })),
   };
@@ -237,6 +280,17 @@ export default function EstimateForm() {
   const canEdit = isNew ? hasPermission('estimates.create') : hasPermission('estimates.edit');
 
   const [form, setForm] = useState<EstimateFormState>(() => emptyForm(undefined, user?.id));
+  const [collapsedServices, setCollapsedServices] = useState<Record<string, boolean>>({});
+  const [visibleNotes, setVisibleNotes] = useState<Record<string, boolean>>({});
+  const [draggingServiceKey, setDraggingServiceKey] = useState<string | null>(null);
+  const [dragOverServiceKey, setDragOverServiceKey] = useState<string | null>(null);
+  const serviceSearchRef = useRef<HTMLDivElement>(null);
+  const serviceSearchInputRef = useRef<HTMLInputElement>(null);
+  const cannedJobRequest = useRef(0);
+  const [serviceQuery, setServiceQuery] = useState('');
+  const [cannedJobSuggestions, setCannedJobSuggestions] = useState<CannedJob[]>([]);
+  const [cannedJobMenuOpen, setCannedJobMenuOpen] = useState(false);
+  const [cannedJobMenuStyle, setCannedJobMenuStyle] = useState<{ top: number; left: number; width: number } | null>(null);
   const [options, setOptions] = useState<EstimateOptions>(emptyOptions);
   const [estimateNumber, setEstimateNumber] = useState<string>('New');
   const [createdAt, setCreatedAt] = useState<string | null>(null);
@@ -309,6 +363,25 @@ export default function EstimateForm() {
     void load();
   }, [id, isNew, user?.id]);
 
+  useEffect(() => {
+    if (!cannedJobMenuOpen) {
+      return;
+    }
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!serviceSearchRef.current?.contains(event.target as Node)) {
+        setCannedJobMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, [cannedJobMenuOpen]);
+
+  useEffect(() => () => {
+    cannedJobRequest.current += 1;
+  }, []);
+
   const updateService = (serviceKey: string, patch: Partial<FormService>) => {
     setForm((current) => ({
       ...current,
@@ -333,12 +406,122 @@ export default function EstimateForm() {
     }));
   };
 
+  const reorderServices = (fromKey: string, toKey: string) => {
+    if (fromKey === '' || fromKey === toKey) {
+      return;
+    }
+
+    setForm((current) => {
+      const fromIndex = current.services.findIndex((service) => service.key === fromKey);
+      const toIndex = current.services.findIndex((service) => service.key === toKey);
+      if (fromIndex < 0 || toIndex < 0) {
+        return current;
+      }
+
+      const services = [...current.services];
+      const [moved] = services.splice(fromIndex, 1);
+      services.splice(toIndex, 0, moved);
+
+      return { ...current, services };
+    });
+  };
+
+  const placeCannedJobMenu = () => {
+    const rect = serviceSearchInputRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return;
+    }
+
+    setCannedJobMenuStyle({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: Math.max(rect.width, 280),
+    });
+  };
+
+  const searchCannedJobs = (query: string) => {
+    if (!canEdit) {
+      setCannedJobSuggestions([]);
+      setCannedJobMenuOpen(false);
+      return;
+    }
+
+    const currentRequest = cannedJobRequest.current + 1;
+    cannedJobRequest.current = currentRequest;
+    window.setTimeout(() => {
+      if (cannedJobRequest.current !== currentRequest) {
+        return;
+      }
+
+      void apiClient.get<{ canned_jobs: CannedJob[] }>('/api/canned-jobs', {
+        params: query.trim() ? { search: query.trim() } : {},
+      }).then((response) => {
+        if (cannedJobRequest.current !== currentRequest) {
+          return;
+        }
+
+        setCannedJobSuggestions(response.data.canned_jobs.slice(0, 8));
+        placeCannedJobMenu();
+        setCannedJobMenuOpen(true);
+      }).catch(() => {
+        if (cannedJobRequest.current === currentRequest) {
+          setCannedJobSuggestions([]);
+          setCannedJobMenuOpen(false);
+        }
+      });
+    }, 200);
+  };
+
+  const applyCannedJob = (job: CannedJob) => {
+    const service = serviceFromCannedJob(job, options.fee_defaults);
+    setForm((current) => {
+      const replacePlaceholder = current.services.length === 1 && isPlaceholderService(current.services[0]);
+
+      return {
+        ...current,
+        services: replacePlaceholder ? [service] : [...current.services, service],
+      };
+    });
+    setServiceQuery('');
+    setCannedJobSuggestions([]);
+    setCannedJobMenuOpen(false);
+    setActiveTab('services');
+  };
+
   const addService = () => {
     setForm((current) => ({
       ...current,
       services: [...current.services, emptyService(options.fee_defaults)],
     }));
     setActiveTab('services');
+  };
+
+  const removeService = (serviceKey: string, serviceName: string) => {
+    const label = serviceName.trim() || 'this service';
+    if (!window.confirm(`Delete ${label}?`)) {
+      return;
+    }
+
+    setForm((current) => {
+      if (current.services.length < 2) {
+        return current;
+      }
+
+      return {
+        ...current,
+        services: current.services.filter((service) => service.key !== serviceKey),
+      };
+    });
+    setCollapsedServices((current) => {
+      const next = { ...current };
+      delete next[serviceKey];
+      return next;
+    });
+    setVisibleNotes((current) => {
+      const next = { ...current };
+      delete next[serviceKey];
+      return next;
+    });
   };
 
   const addLineItem = (serviceKey: string, type: EstimateItemType) => {
@@ -364,10 +547,6 @@ export default function EstimateForm() {
   };
 
   const handleCustomerChange = (value: string) => {
-    if (value === NEW_CUSTOMER_VALUE) {
-      setShowCustomerModal(true);
-      return;
-    }
     setForm((current) => ({
       ...current,
       customer_id: value,
@@ -376,10 +555,6 @@ export default function EstimateForm() {
   };
 
   const handleVehicleChange = (value: string) => {
-    if (value === NEW_VEHICLE_VALUE) {
-      void openVehicleModal();
-      return;
-    }
     setForm((current) => ({ ...current, vehicle_id: value }));
   };
 
@@ -519,7 +694,7 @@ export default function EstimateForm() {
           price: Number(item.price || 0),
           quantity: Number(item.quantity || 0),
           discount: item.discount === '' ? null : Number(item.discount),
-          status: item.status || null,
+          remarks: item.remarks,
         })),
       })),
     };
@@ -614,41 +789,40 @@ export default function EstimateForm() {
         <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="estimate-customer">Customer Name</label>
-            <select
+            <SearchableSelect
               id="estimate-customer"
-              className="form-select w-full"
               value={form.customer_id}
+              placeholder="Select customer"
+              searchPlaceholder="Search customers"
+              emptyLabel="No customers."
               disabled={!canEdit}
-              onChange={(e) => handleCustomerChange(e.target.value)}
-              required
-            >
-              <option value="">Select customer</option>
-              {hasPermission('customers.create') && (
-                <option value={NEW_CUSTOMER_VALUE}>+ Add new customer</option>
-              )}
-              {options.customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>{customer.name}</option>
-              ))}
-            </select>
+              options={options.customers.map((customer) => ({
+                value: String(customer.id),
+                label: customer.name,
+              }))}
+              createLabel={hasPermission('customers.create') ? '+ Add new customer' : undefined}
+              onChange={handleCustomerChange}
+              onCreate={() => setShowCustomerModal(true)}
+            />
             {fieldErrors.customer_id && <p className="mt-1 text-xs text-red-500">{fieldErrors.customer_id[0]}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="estimate-vehicle">Customer Vehicle</label>
-            <select
+            <SearchableSelect
               id="estimate-vehicle"
-              className="form-select w-full"
               value={form.vehicle_id}
+              placeholder="Select vehicle"
+              searchPlaceholder="Search vehicles"
+              emptyLabel="No vehicles."
               disabled={!canEdit || !form.customer_id}
-              onChange={(e) => handleVehicleChange(e.target.value)}
-            >
-              <option value="">Select vehicle</option>
-              {hasPermission('vehicles.create') && form.customer_id && (
-                <option value={NEW_VEHICLE_VALUE}>+ Add new vehicle</option>
-              )}
-              {customerVehicles.map((vehicle) => (
-                <option key={vehicle.id} value={vehicle.id}>{vehicle.name}</option>
-              ))}
-            </select>
+              options={customerVehicles.map((vehicle) => ({
+                value: String(vehicle.id),
+                label: vehicle.name,
+              }))}
+              createLabel={hasPermission('vehicles.create') && form.customer_id ? '+ Add new vehicle' : undefined}
+              onChange={handleVehicleChange}
+              onCreate={() => { void openVehicleModal(); }}
+            />
             {fieldErrors.vehicle_id && <p className="mt-1 text-xs text-red-500">{fieldErrors.vehicle_id[0]}</p>}
           </div>
         </div>
@@ -720,12 +894,61 @@ export default function EstimateForm() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <input
-                    type="search"
-                    className="form-input w-full"
-                    placeholder="Search and Browse Services"
-                    disabled
-                  />
+                  <div ref={serviceSearchRef} className="relative min-w-0 flex-1">
+                    <input
+                      ref={serviceSearchInputRef}
+                      type="search"
+                      className="form-input w-full"
+                      placeholder="Search and Browse Services"
+                      value={serviceQuery}
+                      disabled={!canEdit}
+                      autoComplete="off"
+                      aria-label="Search and Browse Services"
+                      onChange={(event) => {
+                        setServiceQuery(event.target.value);
+                        searchCannedJobs(event.target.value);
+                      }}
+                      onFocus={() => searchCannedJobs(serviceQuery)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') {
+                          setCannedJobMenuOpen(false);
+                        }
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          if (cannedJobMenuOpen && cannedJobSuggestions[0]) {
+                            applyCannedJob(cannedJobSuggestions[0]);
+                          }
+                        }
+                      }}
+                    />
+                    {cannedJobMenuOpen && cannedJobMenuStyle && (
+                      <ul
+                        className="fixed z-50 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+                        style={{ top: cannedJobMenuStyle.top, left: cannedJobMenuStyle.left, width: cannedJobMenuStyle.width }}
+                      >
+                        {cannedJobSuggestions.length === 0 ? (
+                          <li className="px-3 py-2 text-sm text-gray-500">No canned jobs found.</li>
+                        ) : cannedJobSuggestions.map((job) => (
+                          <li key={job.id}>
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-violet-50 dark:hover:bg-violet-500/10"
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => applyCannedJob(job)}
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate font-medium text-gray-800 dark:text-gray-100">{job.name}</span>
+                                <span className="block text-xs text-gray-500">
+                                  {(job.line_items ?? []).length} {(job.line_items ?? []).length === 1 ? 'item' : 'items'}
+                                </span>
+                              </span>
+                              <span className="shrink-0 text-gray-600 dark:text-gray-300">{money(Number(job.subtotal ?? 0))}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                   {canEdit && (
                     <button
                       type="button"
@@ -737,9 +960,82 @@ export default function EstimateForm() {
                   )}
                 </div>
 
-                {form.services.map((service) => (
-                  <div key={service.key} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
-                    <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700/60">
+                {form.services.map((service) => {
+                  const collapsed = Boolean(collapsedServices[service.key]);
+                  const showNote = Boolean(visibleNotes[service.key]) || service.notes.trim() !== '';
+
+                  return (
+                  <div
+                    key={service.key}
+                    className={`rounded-xl border bg-white dark:bg-gray-800 ${
+                      dragOverServiceKey === service.key
+                        ? 'border-violet-400 ring-2 ring-violet-400'
+                        : 'border-gray-200 dark:border-gray-700'
+                    } ${draggingServiceKey === service.key ? 'opacity-60' : ''}`}
+                    onDragOver={(event) => {
+                      if (!canEdit || !draggingServiceKey) {
+                        return;
+                      }
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = 'move';
+                      if (dragOverServiceKey !== service.key) {
+                        setDragOverServiceKey(service.key);
+                      }
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      reorderServices(event.dataTransfer.getData('text/plain'), service.key);
+                      setDraggingServiceKey(null);
+                      setDragOverServiceKey(null);
+                    }}
+                  >
+                    <div className={`flex flex-wrap items-center gap-3 px-4 py-3 ${collapsed ? '' : 'border-b border-gray-100 dark:border-gray-700/60'}`}>
+                      {canEdit && (
+                        <div
+                          draggable
+                          role="button"
+                          tabIndex={0}
+                          aria-label="Drag to reorder service"
+                          className="flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:cursor-grabbing dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                          onDragStart={(event) => {
+                            event.dataTransfer.effectAllowed = 'move';
+                            event.dataTransfer.setData('text/plain', service.key);
+                            setDraggingServiceKey(service.key);
+                          }}
+                          onDragEnd={() => {
+                            setDraggingServiceKey(null);
+                            setDragOverServiceKey(null);
+                          }}
+                        >
+                          <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                            <circle cx="5" cy="3.5" r="1.1" />
+                            <circle cx="11" cy="3.5" r="1.1" />
+                            <circle cx="5" cy="8" r="1.1" />
+                            <circle cx="11" cy="8" r="1.1" />
+                            <circle cx="5" cy="12.5" r="1.1" />
+                            <circle cx="11" cy="12.5" r="1.1" />
+                          </svg>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        aria-expanded={!collapsed}
+                        aria-label={collapsed ? 'Expand service' : 'Collapse service'}
+                        onClick={() => setCollapsedServices((current) => ({
+                          ...current,
+                          [service.key]: !current[service.key],
+                        }))}
+                      >
+                        <svg
+                          viewBox="0 0 16 16"
+                          className={`h-4 w-4 transition-transform ${collapsed ? '-rotate-90' : ''}`}
+                          fill="none"
+                          aria-hidden="true"
+                        >
+                          <path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
                       <input
                         className="form-input flex-1 min-w-[200px]"
                         placeholder="Enter name for this service..."
@@ -747,6 +1043,11 @@ export default function EstimateForm() {
                         disabled={!canEdit}
                         onChange={(e) => updateService(service.key, { name: e.target.value })}
                       />
+                      {collapsed && (
+                        <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                          {money(serviceSubtotal(service))}
+                        </span>
+                      )}
                       <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
                         service.authorized
                           ? 'bg-green-500/15 text-green-700 dark:text-green-400'
@@ -763,118 +1064,62 @@ export default function EstimateForm() {
                           {service.authorized ? 'Revoke' : 'Authorize'}
                         </button>
                       )}
+                      {canEdit && form.services.length > 1 && (
+                        <DeleteButton
+                          label="Delete service"
+                          onClick={() => removeService(service.key, service.name)}
+                        />
+                      )}
                     </div>
 
-                    <div className="px-4 py-3">
-                      <textarea
-                        className="form-textarea w-full"
-                        placeholder="Add Note..."
-                        value={service.notes}
-                        disabled={!canEdit}
-                        onChange={(e) => updateService(service.key, { notes: e.target.value })}
-                      />
-                    </div>
+                    {!collapsed && (showNote ? (
+                      <div className="px-4 py-3">
+                        <textarea
+                          className="form-textarea w-full"
+                          placeholder="Add Note..."
+                          value={service.notes}
+                          disabled={!canEdit}
+                          onChange={(e) => updateService(service.key, { notes: e.target.value })}
+                        />
+                      </div>
+                    ) : canEdit && (
+                      <div className="px-4 pt-3">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:underline dark:text-violet-400"
+                          onClick={() => setVisibleNotes((current) => ({ ...current, [service.key]: true }))}
+                        >
+                          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+                            <rect x="2.75" y="2.75" width="14.5" height="14.5" rx="2" stroke="currentColor" strokeWidth="1.4" />
+                            <path d="M11.1 6.6 13.4 8.9 8.1 14.2H5.8v-2.3l5.3-5.3Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+                          </svg>
+                          Add Note
+                        </button>
+                      </div>
+                    ))}
 
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="text-xs uppercase text-gray-500 bg-gray-50 dark:bg-gray-900/40">
-                          <tr>
-                            <th className="px-4 py-2 text-left font-semibold w-12">#</th>
-                            <th className="px-4 py-2 text-left font-semibold">Items</th>
-                            <th className="px-4 py-2 text-left font-semibold w-28">Price</th>
-                            <th className="px-4 py-2 text-left font-semibold w-24">Qty / Hrs</th>
-                            <th className="px-4 py-2 text-left font-semibold w-24">Disc</th>
-                            <th className="px-4 py-2 text-left font-semibold w-24">Status</th>
-                            <th className="px-4 py-2 text-right font-semibold w-28">Subtotal</th>
-                            <th className="px-2 py-2 w-8" />
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                          {service.line_items.map((item, index) => (
-                            <tr key={item.key}>
-                              <td className="px-4 py-2 text-gray-500 dark:text-gray-400">{index + 1}</td>
-                              <td className="px-4 py-2">
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    className="form-input w-full"
-                                    placeholder={`Enter ${item.type} description`}
-                                    value={item.description}
-                                    disabled={!canEdit}
-                                    onChange={(e) => updateLineItem(service.key, item.key, { description: e.target.value })}
-                                  />
-                                  <span className="shrink-0 text-xs capitalize text-gray-400">{item.type}</span>
-                                </div>
-                              </td>
-                              <td className="px-4 py-2">
-                                <input
-                                  className="form-input w-full"
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={item.price}
-                                  disabled={!canEdit}
-                                  onChange={(e) => updateLineItem(service.key, item.key, { price: e.target.value })}
-                                />
-                              </td>
-                              <td className="px-4 py-2">
-                                <input
-                                  className="form-input w-full"
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={item.quantity}
-                                  disabled={!canEdit}
-                                  onChange={(e) => updateLineItem(service.key, item.key, { quantity: e.target.value })}
-                                />
-                              </td>
-                              <td className="px-4 py-2">
-                                <input
-                                  className="form-input w-full"
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={item.discount}
-                                  disabled={!canEdit}
-                                  onChange={(e) => updateLineItem(service.key, item.key, { discount: e.target.value })}
-                                />
-                              </td>
-                              <td className="px-4 py-2">
-                                <input
-                                  className="form-input w-full"
-                                  value={item.status}
-                                  disabled={!canEdit}
-                                  onChange={(e) => updateLineItem(service.key, item.key, { status: e.target.value })}
-                                />
-                              </td>
-                              <td className="px-4 py-2 text-right font-medium">{money(lineSubtotal(item))}</td>
-                              <td className="px-2 py-2">
-                                {canEdit && (
-                                  <button
-                                    type="button"
-                                    className="text-gray-400 hover:text-red-500"
-                                    onClick={() => removeLineItem(service.key, item.key)}
-                                    aria-label="Remove item"
-                                  >
-                                    ×
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    {!collapsed && (
+                    <>
+                    <ServiceLineGroups
+                      items={service.line_items}
+                      canEdit={canEdit}
+                      onAdd={(type) => addLineItem(service.key, type)}
+                      onUpdate={(itemKey, changes) => updateLineItem(service.key, itemKey, changes)}
+                      onRemove={(itemKey) => removeLineItem(service.key, itemKey)}
+                    />
 
                     {canEdit && (
-                      <div className="px-4 py-3 flex flex-wrap gap-3 text-sm">
-                        {options.item_types.map((type) => (
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 px-4 py-3 text-sm dark:border-gray-700/60">
+                        <span className="text-gray-500">Add</span>
+                        {lineItemGroupOrder.map((type) => (
                           <button
-                            key={type.value}
+                            key={type}
                             type="button"
-                            className="text-violet-600 dark:text-violet-400 hover:underline"
-                            onClick={() => addLineItem(service.key, type.value)}
+                            className="inline-flex items-center gap-1.5 font-medium text-violet-600 hover:underline dark:text-violet-400"
+                            onClick={() => addLineItem(service.key, type)}
                           >
-                            Add {type.label}
+                            <ItemTypeIcon type={type} />
+                            {lineItemGroupMeta[type].shortLabel}
                           </button>
                         ))}
                       </div>
@@ -941,8 +1186,11 @@ export default function EstimateForm() {
                         {money(serviceSubtotal(service))}
                       </span>
                     </div>
+                    </>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
