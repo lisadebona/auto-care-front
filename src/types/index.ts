@@ -156,7 +156,7 @@ export type FeeSettings = {
 
 export type EstimateOrderStatus = 'estimate' | 'invoice';
 
-export type EstimateWorkflow = 'estimates' | 'in_progress' | 'completed';
+export type EstimateWorkflow = 'estimates' | 'dropped_off' | 'in_progress' | 'completed' | 'invoices' | 'cancelled' | `custom-${string}`;
 
 export type EstimateItemType = 'part' | 'labor' | 'tire' | 'subcontract' | 'fee';
 
@@ -169,6 +169,8 @@ export type EstimateLineItem = {
   discount?: string | number | null;
   status?: string | null;
   remarks?: string[] | null;
+  technician_id?: number | null;
+  technician?: { id: number; name: string } | null;
   subtotal?: string;
 };
 
@@ -191,13 +193,21 @@ export type EstimateTotals = {
   tires: string;
   subcontract: string;
   fees: string;
+  subtotal: string;
+  discount: string;
+  shop_supplies: string;
+  epa: string;
+  tax: string;
   grand_total: string;
+  paid_to_date: string;
 };
 
 export type Estimate = {
   id: number;
   number: number;
   display_number: string;
+  invoice_number?: string | null;
+  order_number?: string | null;
   customer_id: number;
   vehicle_id?: number | null;
   service_writer_id?: number | null;
@@ -209,6 +219,7 @@ export type Estimate = {
   payment_terms: string;
   order_status: EstimateOrderStatus;
   workflow: EstimateWorkflow;
+  workflow_label?: string;
   authorized_at?: string | null;
   is_authorized: boolean;
   labels?: string[] | null;
@@ -247,6 +258,13 @@ export type EstimateOptionItem = {
   customer_id?: number;
 };
 
+export type EstimateTechnician = {
+  id: number;
+  name: string;
+  hourly_rate: string | null;
+  flat_rate: boolean;
+};
+
 export type EstimateOptions = {
   payment_terms: string[];
   order_statuses: EstimateOrderStatus[];
@@ -258,6 +276,7 @@ export type EstimateOptions = {
     tax_percent: string;
   };
   service_writers: EstimateOptionItem[];
+  technicians: EstimateTechnician[];
   customers: EstimateOptionItem[];
   vehicles: EstimateOptionItem[];
 };

@@ -13,6 +13,8 @@ export const navGroups: NavItem[] = [
     icon: 'transactions',
     items: [
       { title: 'Estimates', to: '/estimates' },
+      { title: 'Orders', to: '/orders' },
+      { title: 'Invoices', to: '/invoices' },
     ],
   },
   {
@@ -45,6 +47,7 @@ export const navGroups: NavItem[] = [
       { title: 'Users', to: '/users' },
       { title: 'Roles', to: '/roles' },
       { title: 'Permissions', to: '/permissions' },
+      { title: 'Miscellaneous', to: '/settings/miscellaneous' },
     ],
   },
 ];

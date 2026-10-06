@@ -22,6 +22,18 @@ import type {
   VehicleOptions,
 } from '../types';
 
+function recordPath(orderStatus: EstimateOrderStatus, workflow: EstimateWorkflow, recordId: number | string): string {
+  if (orderStatus === 'invoice') {
+    return `/invoices/${recordId}`;
+  }
+
+  if (workflow === 'in_progress') {
+    return `/orders/${recordId}`;
+  }
+
+  return `/estimates/${recordId}`;
+}
+
 type FormLineItem = {
   key: string;
   type: EstimateItemType;
@@ -30,6 +42,8 @@ type FormLineItem = {
   quantity: string;
   discount: string;
   remarks: string[];
+  technician_id: number | null;
+  technician_name: string;
 };
 
 type FormService = {
@@ -128,6 +142,8 @@ function emptyLineItem(type: EstimateItemType = 'part'): FormLineItem {
     quantity: '1',
     discount: '',
     remarks: [],
+    technician_id: null,
+    technician_name: '',
   };
 }
 
@@ -179,6 +195,8 @@ function serviceFromCannedJob(job: CannedJob, feeDefaults?: EstimateOptions['fee
         quantity: amount(item.quantity ?? 1),
         discount: item.discount == null || item.discount === '' ? '' : amount(item.discount),
         remarks: item.remarks ?? [],
+        technician_id: null,
+        technician_name: '',
       }))
       : [emptyLineItem('part')],
   };
@@ -239,6 +257,8 @@ function fromEstimate(estimate: Estimate): EstimateFormState {
         description: '',
         price: 0,
         quantity: 1,
+        technician_id: null,
+        technician: null,
       }]).map((item) => ({
         key: uid(),
         type: item.type,
@@ -249,6 +269,8 @@ function fromEstimate(estimate: Estimate): EstimateFormState {
         remarks: item.remarks?.length
           ? item.remarks
           : (item.status ? [item.status] : []),
+        technician_id: item.technician_id ?? null,
+        technician_name: item.technician?.name ?? '',
       })),
     })),
   };
@@ -257,7 +279,14 @@ function fromEstimate(estimate: Estimate): EstimateFormState {
 const emptyOptions: EstimateOptions = {
   payment_terms: ['On Receipt'],
   order_statuses: ['estimate', 'invoice'],
-  workflows: [{ value: 'estimates', label: 'Estimates' }],
+  workflows: [
+    { value: 'estimates', label: 'Estimates' },
+    { value: 'dropped_off', label: 'Dropped Off' },
+    { value: 'in_progress', label: 'In Progress / Repair Order' },
+    { value: 'completed', label: 'Invoiced / Complete' },
+    { value: 'invoices', label: 'Invoices' },
+    { value: 'cancelled', label: 'Cancelled' },
+  ],
   item_types: [
     { value: 'part', label: 'Part' },
     { value: 'labor', label: 'Labor' },
@@ -267,6 +296,7 @@ const emptyOptions: EstimateOptions = {
   ],
   fee_defaults: { epa_percent: '0', shop_supplies_percent: '0', tax_percent: '0' },
   service_writers: [],
+  technicians: [],
   customers: [],
   vehicles: [],
 };
@@ -280,6 +310,8 @@ export default function EstimateForm() {
   const canEdit = isNew ? hasPermission('estimates.create') : hasPermission('estimates.edit');
 
   const [form, setForm] = useState<EstimateFormState>(() => emptyForm(undefined, user?.id));
+  const hideRevokeAuthorization = form.authorized
+    && (form.order_status === 'invoice' || form.workflow === 'in_progress');
   const [collapsedServices, setCollapsedServices] = useState<Record<string, boolean>>({});
   const [visibleNotes, setVisibleNotes] = useState<Record<string, boolean>>({});
   const [draggingServiceKey, setDraggingServiceKey] = useState<string | null>(null);
@@ -292,7 +324,12 @@ export default function EstimateForm() {
   const [cannedJobMenuOpen, setCannedJobMenuOpen] = useState(false);
   const [cannedJobMenuStyle, setCannedJobMenuStyle] = useState<{ top: number; left: number; width: number } | null>(null);
   const [options, setOptions] = useState<EstimateOptions>(emptyOptions);
+  const workflowOptions = options.workflows.filter((workflow) => (
+    form.order_status === 'invoice' || workflow.value !== 'invoices'
+  ));
   const [estimateNumber, setEstimateNumber] = useState<string>('New');
+  const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
+  const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('services');
   const [loading, setLoading] = useState(true);
@@ -315,19 +352,42 @@ export default function EstimateForm() {
   );
 
   const totals = useMemo(() => {
-    const buckets = { parts: 0, labor: 0, tires: 0, subcontract: 0, fees: 0 };
+    const buckets = {
+      parts: 0,
+      labor: 0,
+      tires: 0,
+      subcontract: 0,
+      fees: 0,
+      subtotal: 0,
+      discount: 0,
+      shopSupplies: 0,
+      epa: 0,
+      tax: 0,
+    };
     for (const service of form.services) {
+      let itemsTotal = 0;
       for (const item of service.line_items) {
         const subtotal = lineSubtotal(item);
+        itemsTotal += subtotal;
         if (item.type === 'part') buckets.parts += subtotal;
         if (item.type === 'labor') buckets.labor += subtotal;
         if (item.type === 'tire') buckets.tires += subtotal;
         if (item.type === 'subcontract') buckets.subcontract += subtotal;
         if (item.type === 'fee') buckets.fees += subtotal;
       }
+      const discount = itemsTotal * (Number(service.discount_percent || 0) / 100);
+      const afterDiscount = itemsTotal - discount;
+      const epa = afterDiscount * (Number(service.epa_percent || 0) / 100);
+      const shopSupplies = afterDiscount * (Number(service.shop_supplies_percent || 0) / 100);
+      const tax = (afterDiscount + epa + shopSupplies) * (Number(service.tax_percent || 0) / 100);
+      buckets.subtotal += itemsTotal;
+      buckets.discount += discount;
+      buckets.epa += epa;
+      buckets.shopSupplies += shopSupplies;
+      buckets.tax += tax;
     }
-    const grand = Object.values(buckets).reduce((sum, value) => sum + value, 0);
-    return { ...buckets, grand };
+    const grand = buckets.subtotal - buckets.discount + buckets.shopSupplies + buckets.epa + buckets.tax;
+    return { ...buckets, grand, paid: 0 };
   }, [form.services]);
 
   useEffect(() => {
@@ -340,13 +400,25 @@ export default function EstimateForm() {
           setOptions(response.data.options);
           setForm(emptyForm(response.data.options.fee_defaults, user?.id));
           setEstimateNumber('New');
+          setInvoiceNumber(null);
+          setOrderNumber(null);
           setCreatedAt(null);
         } else {
           const response = await apiClient.get<{ estimate: Estimate; options: EstimateOptions }>(`/api/estimates/${id}`);
           setOptions(response.data.options);
           setForm(fromEstimate(response.data.estimate));
           setEstimateNumber(response.data.estimate.display_number);
+          setInvoiceNumber(response.data.estimate.invoice_number ?? null);
+          setOrderNumber(response.data.estimate.order_number ?? null);
           setCreatedAt(response.data.estimate.created_at ?? null);
+          const nextPath = recordPath(
+            response.data.estimate.order_status,
+            response.data.estimate.workflow,
+            response.data.estimate.id,
+          );
+          if (window.location.pathname !== nextPath) {
+            navigate(nextPath, { replace: true });
+          }
         }
       } catch (err: unknown) {
         if (isAxiosError(err)) {
@@ -695,26 +767,37 @@ export default function EstimateForm() {
           quantity: Number(item.quantity || 0),
           discount: item.discount === '' ? null : Number(item.discount),
           remarks: item.remarks,
+          technician_id: item.type === 'labor' ? item.technician_id : null,
         })),
       })),
     };
 
     try {
+      const listPath = payload.order_status === 'invoice'
+        ? '/invoices'
+        : payload.workflow === 'in_progress'
+          ? '/orders'
+          : '/estimates';
+
       if (isNew) {
         const response = await apiClient.post<{ estimate: Estimate }>('/api/estimates', payload);
         if (closeAfter) {
-          navigate('/estimates');
+          navigate(listPath);
         } else {
-          navigate(`/estimates/${response.data.estimate.id}`, { replace: true });
+          navigate(recordPath(payload.order_status, payload.workflow, response.data.estimate.id), { replace: true });
         }
       } else {
         await apiClient.put(`/api/estimates/${id}`, payload);
         if (closeAfter) {
-          navigate('/estimates');
+          navigate(listPath);
+        } else if (id && window.location.pathname !== recordPath(payload.order_status, payload.workflow, id)) {
+          navigate(recordPath(payload.order_status, payload.workflow, id), { replace: true });
         } else {
           const response = await apiClient.get<{ estimate: Estimate; options: EstimateOptions }>(`/api/estimates/${id}`);
           setOptions(response.data.options);
           setForm(fromEstimate(response.data.estimate));
+          setInvoiceNumber(response.data.estimate.invoice_number ?? null);
+          setOrderNumber(response.data.estimate.order_number ?? null);
         }
       }
     } catch (err: unknown) {
@@ -750,12 +833,19 @@ export default function EstimateForm() {
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-3">
-              <Link to="/estimates" className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                Estimates
+              <Link
+                to={form.order_status === 'invoice' ? '/invoices' : form.workflow === 'in_progress' ? '/orders' : '/estimates'}
+                className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                {form.order_status === 'invoice' ? 'Invoices' : form.workflow === 'in_progress' ? 'Orders' : 'Estimates'}
               </Link>
               <span className="text-gray-300">/</span>
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                Estimate ({estimateNumber})
+                {form.order_status === 'invoice'
+                  ? `Invoice (${invoiceNumber ?? 'New'})`
+                  : form.workflow === 'in_progress'
+                    ? `Order (${orderNumber ?? 'New'})`
+                    : `Estimate (${estimateNumber})`}
               </h1>
             </div>
             <p className="mt-1 text-sm text-gray-500">Labels: Add +</p>
@@ -1103,6 +1193,7 @@ export default function EstimateForm() {
                     <ServiceLineGroups
                       items={service.line_items}
                       canEdit={canEdit}
+                      technicians={options.technicians}
                       onAdd={(type) => addLineItem(service.key, type)}
                       onUpdate={(itemKey, changes) => updateLineItem(service.key, itemKey, changes)}
                       onRemove={(itemKey) => removeLineItem(service.key, itemKey)}
@@ -1211,6 +1302,18 @@ export default function EstimateForm() {
                 <span className="text-gray-500">Estimate</span>
                 <span className="font-medium">{estimateNumber}</span>
               </div>
+              {(form.workflow === 'in_progress' || orderNumber) && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-gray-500">Order #</span>
+                  <span className="font-medium">{orderNumber ?? '—'}</span>
+                </div>
+              )}
+              {(form.order_status === 'invoice' || invoiceNumber) && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-gray-500">Invoice #</span>
+                  <span className="font-medium">{invoiceNumber ?? '—'}</span>
+                </div>
+              )}
               <div>
                 <label className="block text-gray-500 mb-1" htmlFor="service-writer">Service Writer</label>
                 <select
@@ -1236,9 +1339,12 @@ export default function EstimateForm() {
                   id="po-number"
                   className="form-input w-full"
                   value={form.po_number}
+                  placeholder="Leave blank to auto-generate"
                   disabled={!canEdit}
                   onChange={(e) => setForm((current) => ({ ...current, po_number: e.target.value }))}
                 />
+        
+                {fieldErrors.po_number && <p className="mt-1 text-xs text-red-500">{fieldErrors.po_number[0]}</p>}
               </div>
               <div>
                 <label className="block text-gray-500 mb-1" htmlFor="completed-at">Completed</label>
@@ -1273,7 +1379,7 @@ export default function EstimateForm() {
                 <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
                   {form.authorized ? 'Authorized' : 'Not yet authorized'} · {money(totals.grand)}
                 </p>
-                {canEdit && (
+                {canEdit && !hideRevokeAuthorization && (
                   <button
                     type="button"
                     onClick={() => setForm((current) => ({ ...current, authorized: !current.authorized }))}
@@ -1292,7 +1398,15 @@ export default function EstimateForm() {
                       key={status}
                       type="button"
                       disabled={!canEdit}
-                      onClick={() => setForm((current) => ({ ...current, order_status: status }))}
+                      onClick={() => setForm((current) => ({
+                        ...current,
+                        order_status: status,
+                        workflow: status === 'invoice'
+                          ? 'invoices'
+                          : current.workflow === 'invoices'
+                            ? 'estimates'
+                            : current.workflow,
+                      }))}
                       className={`flex-1 rounded px-3 py-1.5 text-sm uppercase ${
                         form.order_status === status
                           ? 'bg-gray-800 text-white dark:bg-gray-100 dark:text-gray-800'
@@ -1307,17 +1421,16 @@ export default function EstimateForm() {
 
               <div>
                 <label className="block text-xs uppercase tracking-wide text-gray-400 mb-2" htmlFor="workflow">Workflow</label>
-                <select
+                <SearchableSelect
                   id="workflow"
-                  className="form-select w-full"
                   value={form.workflow}
+                  placeholder="Select workflow"
+                  searchPlaceholder="Search workflow"
+                  emptyLabel="No workflows."
                   disabled={!canEdit}
-                  onChange={(e) => setForm((current) => ({ ...current, workflow: e.target.value as EstimateWorkflow }))}
-                >
-                  {options.workflows.map((workflow) => (
-                    <option key={workflow.value} value={workflow.value}>{workflow.label}</option>
-                  ))}
-                </select>
+                  options={workflowOptions}
+                  onChange={(workflow) => setForm((current) => ({ ...current, workflow: workflow as EstimateWorkflow }))}
+                />
               </div>
             </div>
 
@@ -1327,10 +1440,16 @@ export default function EstimateForm() {
               <div className="flex justify-between"><span className="text-gray-500">Total Tires</span><span>{money(totals.tires)}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Total Subcontract</span><span>{money(totals.subcontract)}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Total Fees</span><span>{money(totals.fees)}</span></div>
+              <div className="flex justify-between border-t border-gray-100 dark:border-gray-700 pt-2"><span className="text-gray-500">Subtotal</span><span>{money(totals.subtotal)}</span></div>
+              <div className="flex justify-between"><span className="pl-4 text-gray-500">Discount</span><span>{money(totals.discount)}</span></div>
+              <div className="flex justify-between"><span className="pl-4 text-gray-500">Shop Supplies</span><span>{money(totals.shopSupplies)}</span></div>
+              <div className="flex justify-between"><span className="pl-4 text-gray-500">EPA</span><span>{money(totals.epa)}</span></div>
+              <div className="flex justify-between"><span className="pl-4 text-gray-500">Tax</span><span>{money(totals.tax)}</span></div>
               <div className="flex justify-between border-t border-gray-100 dark:border-gray-700 pt-2 font-semibold">
                 <span>Grand Total</span>
                 <span>{money(totals.grand)}</span>
               </div>
+              <div className="flex justify-between"><span className="text-gray-500">Paid to Date</span><span>{money(totals.paid)}</span></div>
             </div>
 
             {canEdit && (

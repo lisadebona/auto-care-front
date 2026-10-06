@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import apiClient from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
-import type { EstimateItemType, Product } from '../types';
+import type { EstimateItemType, EstimateTechnician, Product } from '../types';
 
 export type ServiceLineItem = {
   key: string;
@@ -11,6 +11,8 @@ export type ServiceLineItem = {
   quantity: string;
   discount: string;
   remarks: string[];
+  technician_id?: number | null;
+  technician_name?: string;
 };
 
 export const lineItemGroupOrder: EstimateItemType[] = ['labor', 'part', 'tire', 'subcontract', 'fee'];
@@ -199,6 +201,14 @@ function PartDescriptionInput({
   );
 }
 
+const remarkSuggestions = [
+  'Pending',
+  'On-Hold',
+  'In Progress',
+  'Completed',
+  'Not Completed',
+];
+
 function LineItemRemarks({
   remarks,
   disabled,
@@ -208,13 +218,46 @@ function LineItemRemarks({
   disabled: boolean;
   onChange: (remarks: string[]) => void;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const skipBlur = useRef(false);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [menuStyle, setMenuStyle] = useState<{ top: number; left: number; width: number } | null>(null);
+  const listId = useId();
 
-  const addRemark = () => {
-    const next = draft.trim();
+  const suggestions = remarkSuggestions.filter((suggestion) => {
+    const alreadyAdded = remarks.some((remark) => remark.toLowerCase() === suggestion.toLowerCase());
+    if (alreadyAdded) {
+      return false;
+    }
+
+    const query = draft.trim().toLowerCase();
+
+    return query === '' || suggestion.toLowerCase().includes(query);
+  });
+
+  const placeMenu = () => {
+    const rect = inputRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return;
+    }
+
+    setMenuStyle({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: Math.max(rect.width, 160),
+    });
+  };
+
+  const addRemark = (value: string) => {
+    const trimmed = value.trim();
+    const match = remarkSuggestions.find((suggestion) => suggestion.toLowerCase() === trimmed.toLowerCase());
+    const next = match ?? trimmed;
     setDraft('');
     setAdding(false);
+    setActiveIndex(0);
 
     if (next === '' || remarks.some((remark) => remark.toLowerCase() === next.toLowerCase())) {
       return;
@@ -223,8 +266,38 @@ function LineItemRemarks({
     onChange([...remarks, next]);
   };
 
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [draft]);
+
+  useEffect(() => {
+    if (!adding) {
+      return;
+    }
+
+    const updateMenu = () => placeMenu();
+    updateMenu();
+    window.addEventListener('scroll', updateMenu, true);
+    window.addEventListener('resize', updateMenu);
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setAdding(false);
+        setDraft('');
+      }
+    };
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+
+    return () => {
+      window.removeEventListener('scroll', updateMenu, true);
+      window.removeEventListener('resize', updateMenu);
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+    };
+  }, [adding]);
+
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div ref={containerRef} className="flex flex-wrap items-center gap-1.5">
       {remarks.map((remark) => (
         <button
           key={remark}
@@ -244,7 +317,10 @@ function LineItemRemarks({
         <button
           type="button"
           className="inline-flex h-7 w-7 items-center justify-center rounded-md text-lg leading-none text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-500/10"
-          onClick={() => setAdding(true)}
+          onClick={() => {
+            skipBlur.current = false;
+            setAdding(true);
+          }}
           aria-label="Add remark"
         >
           +
@@ -252,23 +328,265 @@ function LineItemRemarks({
       )}
       {!disabled && adding && (
         <input
+          ref={inputRef}
           autoFocus
           className="form-input w-36 py-1 text-xs"
           placeholder="Add remark"
           value={draft}
+          role="combobox"
+          aria-expanded={suggestions.length > 0}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          autoComplete="off"
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
+            if (event.key === 'ArrowDown') {
+              event.preventDefault();
+              setActiveIndex((index) => Math.min(suggestions.length - 1, index + 1));
+            }
+            if (event.key === 'ArrowUp') {
+              event.preventDefault();
+              setActiveIndex((index) => Math.max(0, index - 1));
+            }
             if (event.key === 'Enter') {
               event.preventDefault();
-              addRemark();
+              skipBlur.current = true;
+              addRemark(suggestions[activeIndex] ?? draft);
             }
             if (event.key === 'Escape') {
               setDraft('');
               setAdding(false);
             }
           }}
-          onBlur={addRemark}
+          onBlur={() => {
+            if (skipBlur.current) {
+              skipBlur.current = false;
+              return;
+            }
+
+            addRemark(draft);
+          }}
         />
+      )}
+      {adding && suggestions.length > 0 && menuStyle && (
+        <ul
+          id={listId}
+          role="listbox"
+          className="fixed z-50 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+          style={{ top: menuStyle.top, left: menuStyle.left, width: menuStyle.width }}
+        >
+          {suggestions.map((suggestion, index) => (
+            <li key={suggestion} role="presentation">
+              <button
+                type="button"
+                role="option"
+                aria-selected={index === activeIndex}
+                className={`block w-full px-3 py-2 text-left text-sm ${
+                  index === activeIndex
+                    ? 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300'
+                    : 'text-gray-800 hover:bg-violet-50 dark:text-gray-100 dark:hover:bg-violet-500/10'
+                }`}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => {
+                  skipBlur.current = true;
+                  addRemark(suggestion);
+                }}
+              >
+                {suggestion}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function technicianHourlyRate(technician: EstimateTechnician): string | null {
+  if (!technician.flat_rate || technician.hourly_rate == null || technician.hourly_rate === '') {
+    return null;
+  }
+
+  const parsed = Number(technician.hourly_rate);
+
+  return Number.isFinite(parsed) ? parsed.toFixed(2) : null;
+}
+
+function LineItemTechnician({
+  technicianId,
+  technicianName,
+  technicians,
+  disabled,
+  onSelect,
+  onClear,
+}: {
+  technicianId: number | null;
+  technicianName: string;
+  technicians: EstimateTechnician[];
+  disabled: boolean;
+  onSelect: (technician: EstimateTechnician) => void;
+  onClear: () => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [menuStyle, setMenuStyle] = useState<{ top: number; left: number; width: number } | null>(null);
+  const listId = useId();
+  const selected = technicians.find((technician) => technician.id === technicianId);
+  const label = selected?.name || technicianName;
+
+  const suggestions = technicians.filter((technician) => {
+    const query = draft.trim().toLowerCase();
+
+    return query === '' || technician.name.toLowerCase().includes(query);
+  });
+
+  const placeMenu = () => {
+    const rect = inputRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return;
+    }
+
+    setMenuStyle({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: Math.max(rect.width, 180),
+    });
+  };
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [draft]);
+
+  useEffect(() => {
+    if (!adding) {
+      return;
+    }
+
+    const updateMenu = () => placeMenu();
+    updateMenu();
+    window.addEventListener('scroll', updateMenu, true);
+    window.addEventListener('resize', updateMenu);
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setAdding(false);
+        setDraft('');
+      }
+    };
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+
+    return () => {
+      window.removeEventListener('scroll', updateMenu, true);
+      window.removeEventListener('resize', updateMenu);
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+    };
+  }, [adding]);
+
+  if (technicianId != null && label !== '') {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onClear}
+        className="inline-flex max-w-full items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 disabled:cursor-default dark:bg-gray-700 dark:text-gray-200"
+        aria-label={`Remove technician ${label}`}
+      >
+        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" aria-hidden="true">
+          <path d="M3.5 8.2 6.2 11 12.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span className="truncate">{label}</span>
+      </button>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="flex flex-wrap items-center gap-1.5">
+      {!disabled && !adding && (
+        <button
+          type="button"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-lg leading-none text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-500/10"
+          onClick={() => setAdding(true)}
+          aria-label="Add technician"
+        >
+          +
+        </button>
+      )}
+      {!disabled && adding && (
+        <input
+          ref={inputRef}
+          autoFocus
+          className="form-input w-36 py-1 text-xs"
+          placeholder="Search technician"
+          value={draft}
+          role="combobox"
+          aria-expanded={adding}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          autoComplete="off"
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowDown') {
+              event.preventDefault();
+              setActiveIndex((index) => Math.min(suggestions.length - 1, index + 1));
+            }
+            if (event.key === 'ArrowUp') {
+              event.preventDefault();
+              setActiveIndex((index) => Math.max(0, index - 1));
+            }
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              const match = suggestions[activeIndex];
+              if (match) {
+                setAdding(false);
+                setDraft('');
+                onSelect(match);
+              }
+            }
+            if (event.key === 'Escape') {
+              setDraft('');
+              setAdding(false);
+            }
+          }}
+        />
+      )}
+      {adding && menuStyle && (
+        <ul
+          id={listId}
+          role="listbox"
+          className="fixed z-50 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+          style={{ top: menuStyle.top, left: menuStyle.left, width: menuStyle.width }}
+        >
+          {suggestions.length === 0 ? (
+            <li className="px-3 py-2 text-sm text-gray-500">No technicians found.</li>
+          ) : suggestions.map((technician, index) => (
+            <li key={technician.id} role="presentation">
+              <button
+                type="button"
+                role="option"
+                aria-selected={index === activeIndex}
+                className={`block w-full truncate px-3 py-2 text-left text-sm ${
+                  index === activeIndex
+                    ? 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300'
+                    : 'text-gray-800 hover:bg-violet-50 dark:text-gray-100 dark:hover:bg-violet-500/10'
+                }`}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => {
+                  setAdding(false);
+                  setDraft('');
+                  onSelect(technician);
+                }}
+              >
+                {technician.name}
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -334,6 +652,7 @@ export function ServiceLineGroups({
   items,
   canEdit,
   showTagsAndDiscount = true,
+  technicians = [],
   onAdd,
   onUpdate,
   onRemove,
@@ -341,6 +660,7 @@ export function ServiceLineGroups({
   items: ServiceLineItem[];
   canEdit: boolean;
   showTagsAndDiscount?: boolean;
+  technicians?: EstimateTechnician[];
   onAdd: (type: EstimateItemType) => void;
   onUpdate: (itemKey: string, changes: Partial<ServiceLineItem>) => void;
   onRemove: (itemKey: string) => void;
@@ -362,6 +682,7 @@ export function ServiceLineGroups({
           items={group.items}
           canEdit={canEdit}
           showTagsAndDiscount={showTagsAndDiscount}
+          technicians={technicians}
           onAdd={onAdd}
           onUpdate={onUpdate}
           onRemove={onRemove}
@@ -376,6 +697,7 @@ function LineItemGroup({
   items,
   canEdit,
   showTagsAndDiscount,
+  technicians,
   onAdd,
   onUpdate,
   onRemove,
@@ -384,12 +706,15 @@ function LineItemGroup({
   items: ServiceLineItem[];
   canEdit: boolean;
   showTagsAndDiscount: boolean;
+  technicians: EstimateTechnician[];
   onAdd: (type: EstimateItemType) => void;
   onUpdate: (itemKey: string, changes: Partial<ServiceLineItem>) => void;
   onRemove: (itemKey: string) => void;
 }) {
   const meta = lineItemGroupMeta[type];
   const isLabor = type === 'labor';
+  const showTechnician = isLabor && showTagsAndDiscount;
+  const columnCount = 5 + (showTagsAndDiscount ? 2 : 0) + (showTechnician ? 1 : 0);
 
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700/60">
@@ -404,7 +729,8 @@ function LineItemGroup({
             </th>
             {isLabor ? (
               <>
-                {showTagsAndDiscount && <th className="px-3 py-2 text-left font-medium">Tags</th>}
+                {showTechnician && <th className="px-3 py-2 text-left font-medium">Technician</th>}
+                {showTagsAndDiscount && <th className="px-3 py-2 text-left font-medium">Remarks</th>}
                 <th className="w-24 px-3 py-2 text-left font-medium">Hours</th>
                 <th className="w-28 px-3 py-2 text-left font-medium">Rate/hr</th>
               </>
@@ -412,7 +738,7 @@ function LineItemGroup({
               <>
                 <th className="w-24 px-3 py-2 text-left font-medium">Qty</th>
                 <th className="w-28 px-3 py-2 text-left font-medium">Price</th>
-                {showTagsAndDiscount && <th className="px-3 py-2 text-left font-medium">Tags</th>}
+                {showTagsAndDiscount && <th className="px-3 py-2 text-left font-medium">Remarks</th>}
               </>
             )}
             {showTagsAndDiscount && <th className="w-24 px-3 py-2 text-left font-medium">Discount</th>}
@@ -423,7 +749,7 @@ function LineItemGroup({
         <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
           {items.map((item) => (
             <tr key={item.key}>
-              <td className="px-3 py-2">
+              <td className="px-1 py-2">
                 {type === 'part' || type === 'tire' ? (
                   <PartDescriptionInput
                     value={item.description}
@@ -447,8 +773,27 @@ function LineItemGroup({
               </td>
               {isLabor ? (
                 <>
+                  {showTechnician && (
+                    <td className="px-1 py-2">
+                      <LineItemTechnician
+                        technicianId={item.technician_id ?? null}
+                        technicianName={item.technician_name ?? ''}
+                        technicians={technicians}
+                        disabled={!canEdit}
+                        onSelect={(technician) => {
+                          const rate = technicianHourlyRate(technician);
+                          onUpdate(item.key, {
+                            technician_id: technician.id,
+                            technician_name: technician.name,
+                            ...(rate != null ? { price: rate } : {}),
+                          });
+                        }}
+                        onClear={() => onUpdate(item.key, { technician_id: null, technician_name: '' })}
+                      />
+                    </td>
+                  )}
                   {showTagsAndDiscount && (
-                    <td className="px-3 py-2">
+                    <td className="px-1 py-2">
                       <LineItemRemarks
                         remarks={item.remarks}
                         disabled={!canEdit}
@@ -456,7 +801,7 @@ function LineItemGroup({
                       />
                     </td>
                   )}
-                  <td className="px-3 py-2">
+                  <td className="px-1 py-2">
                     <input
                       className="form-input w-full"
                       type="number"
@@ -468,7 +813,7 @@ function LineItemGroup({
                       onChange={(event) => onUpdate(item.key, { quantity: event.target.value })}
                     />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-1 py-2">
                     <input
                       className="form-input w-full"
                       type="number"
@@ -483,7 +828,7 @@ function LineItemGroup({
                 </>
               ) : (
                 <>
-                  <td className="px-3 py-2">
+                  <td className="px-1 py-2">
                     <input
                       className="form-input w-full"
                       type="number"
@@ -495,7 +840,7 @@ function LineItemGroup({
                       onChange={(event) => onUpdate(item.key, { quantity: event.target.value })}
                     />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-1 py-2">
                     <input
                       className="form-input w-full"
                       type="number"
@@ -508,7 +853,7 @@ function LineItemGroup({
                     />
                   </td>
                   {showTagsAndDiscount && (
-                    <td className="px-3 py-2">
+                    <td className="px-1 py-2">
                       <LineItemRemarks
                         remarks={item.remarks}
                         disabled={!canEdit}
@@ -519,7 +864,7 @@ function LineItemGroup({
                 </>
               )}
               {showTagsAndDiscount && (
-                <td className="px-3 py-2">
+                <td className="px-1 py-2">
                   <input
                     className="form-input w-full"
                     type="number"
@@ -532,7 +877,7 @@ function LineItemGroup({
                   />
                 </td>
               )}
-              <td className="px-3 py-2 text-right font-medium">{money(lineItemSubtotal(item))}</td>
+              <td className="px-1 py-2 text-right font-medium">{money(lineItemSubtotal(item))}</td>
               <td className="px-2 py-2">
                 {canEdit && (
                   <button
@@ -549,7 +894,7 @@ function LineItemGroup({
           ))}
           {canEdit && (
             <tr>
-              <td colSpan={showTagsAndDiscount ? 7 : 5} className="px-3 py-2">
+              <td colSpan={columnCount} className="px-1 py-2">
                 <button
                   type="button"
                   className="inline-flex items-center gap-2 text-sm font-medium text-violet-600 hover:underline dark:text-violet-400"

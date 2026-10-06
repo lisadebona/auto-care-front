@@ -14,36 +14,36 @@ function formatMoney(value: string | number | undefined): string {
   return Number.isFinite(amount) ? `$${amount.toFixed(2)}` : '$0.00';
 }
 
-export default function Estimates() {
+export default function Invoices() {
   const navigate = useNavigate();
   const { hasPermission } = usePermission();
-  const [estimates, setEstimates] = useState<Estimate[]>([]);
+  const [invoices, setInvoices] = useState<Estimate[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const table = useTableControls(estimates, {
-    estimate: (estimate) => estimate.number,
-    customer: (estimate) => estimate.customer?.name,
-    vehicle: (estimate) => estimate.vehicle?.name,
-    workflow: (estimate) => estimate.workflow_label,
-    status: (estimate) => estimate.order_status,
-    total: (estimate) => Number(estimate.totals?.grand_total ?? 0),
+  const table = useTableControls(invoices, {
+    invoice: (invoice) => invoice.invoice_number,
+    estimate: (invoice) => invoice.number,
+    customer: (invoice) => invoice.customer?.name,
+    vehicle: (invoice) => invoice.vehicle?.name,
+    workflow: (invoice) => invoice.workflow_label,
+    total: (invoice) => Number(invoice.totals?.grand_total ?? 0),
   });
 
-  const loadEstimates = async (query = search) => {
+  const loadInvoices = async (query = search) => {
     setLoading(true);
     setError('');
     try {
       const response = await apiClient.get<{ estimates: Estimate[] }>('/api/estimates', {
-        params: { status: 'estimate', except_workflow: 'in_progress', ...(query ? { search: query } : {}) },
+        params: { status: 'invoice', ...(query ? { search: query } : {}) },
       });
-      setEstimates(response.data.estimates);
+      setInvoices(response.data.estimates);
     } catch (err: unknown) {
       if (isAxiosError(err)) {
         const message = err.response?.data?.message;
-        setError(typeof message === 'string' ? message : 'Unable to load estimates.');
+        setError(typeof message === 'string' ? message : 'Unable to load invoices.');
       } else {
-        setError('Unable to load estimates.');
+        setError('Unable to load invoices.');
       }
     } finally {
       setLoading(false);
@@ -52,47 +52,38 @@ export default function Estimates() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void loadEstimates(search);
+      void loadInvoices(search);
     }, 300);
 
     return () => window.clearTimeout(timer);
   }, [search]);
 
-  const handleDelete = async (estimate: Estimate) => {
-    if (!window.confirm(`Delete estimate ${estimate.display_number}?`)) {
+  const handleDelete = async (invoice: Estimate) => {
+    if (!window.confirm(`Delete invoice ${invoice.invoice_number ?? invoice.display_number}?`)) {
       return;
     }
 
     try {
-      await apiClient.delete(`/api/estimates/${estimate.id}`);
-      await loadEstimates();
+      await apiClient.delete(`/api/estimates/${invoice.id}`);
+      await loadInvoices();
     } catch (err: unknown) {
       if (isAxiosError(err)) {
         const message = err.response?.data?.message;
-        setError(typeof message === 'string' ? message : 'Unable to delete estimate.');
+        setError(typeof message === 'string' ? message : 'Unable to delete invoice.');
       }
     }
   };
 
   return (
     <ModulePage
-      title="Estimates"
-      description="Create and manage repair estimates for customers."
-      action={hasPermission('estimates.create') ? (
-        <button
-          type="button"
-          onClick={() => navigate('/estimates/new')}
-          className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
-        >
-          New Estimate
-        </button>
-      ) : undefined}
+      title="Invoices"
+      description="Estimates that have been converted to invoices."
     >
       <div className="mb-4">
         <input
           type="search"
           className="form-input w-full max-w-md"
-          placeholder="Search by estimate #, customer, vehicle..."
+          placeholder="Search by invoice #, estimate #, customer, vehicle..."
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -105,66 +96,66 @@ export default function Estimates() {
 
       <div className="bg-white dark:bg-gray-800 shadow-xs rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/60">
-          <h2 className="font-semibold text-gray-800 dark:text-gray-100">Estimates</h2>
+          <h2 className="font-semibold text-gray-800 dark:text-gray-100">Invoices</h2>
         </div>
 
         {loading ? (
-          <p className="px-5 py-8 text-sm text-gray-500">Loading estimates...</p>
-        ) : estimates.length === 0 ? (
-          <p className="px-5 py-8 text-sm text-gray-500">No estimates found.</p>
+          <p className="px-5 py-8 text-sm text-gray-500">Loading invoices...</p>
+        ) : invoices.length === 0 ? (
+          <p className="px-5 py-8 text-sm text-gray-500">No invoices found.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="text-xs uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/40">
                 <tr>
                   <th className="px-5 py-3 font-semibold w-12">#</th>
+                  <th className="px-5 py-3"><SortHeader label="Invoice" column="invoice" table={table} /></th>
                   <th className="px-5 py-3"><SortHeader label="Estimate" column="estimate" table={table} /></th>
                   <th className="px-5 py-3"><SortHeader label="Customer" column="customer" table={table} /></th>
                   <th className="px-5 py-3"><SortHeader label="Vehicle" column="vehicle" table={table} /></th>
                   <th className="px-5 py-3"><SortHeader label="Workflow" column="workflow" table={table} /></th>
-                  <th className="px-5 py-3"><SortHeader label="Status" column="status" table={table} /></th>
                   <th className="px-5 py-3"><SortHeader label="Total" column="total" table={table} /></th>
                   <th className="px-5 py-3 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                {table.pageRows.map((estimate, index) => (
-                  <tr key={estimate.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/20">
+                {table.pageRows.map((invoice, index) => (
+                  <tr key={invoice.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/20">
                     <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                     <td className="px-5 py-3">
                       <Link
-                        to={`/estimates/${estimate.id}`}
+                        to={`/invoices/${invoice.id}`}
                         className="font-medium text-violet-600 dark:text-violet-400 hover:underline"
                       >
-                        {estimate.display_number}
+                        {invoice.invoice_number ?? '—'}
                       </Link>
                     </td>
                     <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
-                      {estimate.customer?.name ?? '—'}
+                      {invoice.display_number}
                     </td>
                     <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
-                      {estimate.vehicle?.name ?? '—'}
+                      {invoice.customer?.name ?? '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
-                      {estimate.workflow_label ?? '—'}
+                      {invoice.vehicle?.name ?? '—'}
                     </td>
                     <td className="px-5 py-3">
-                      <span className="inline-flex rounded-full bg-gray-100 dark:bg-gray-700 px-2.5 py-0.5 text-xs font-medium capitalize text-gray-700 dark:text-gray-200">
-                        {estimate.order_status}
+                      <span className="inline-flex rounded-full bg-gray-100 dark:bg-gray-700 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-200">
+                        {invoice.workflow_label ?? '—'}
                       </span>
                     </td>
                     <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">
-                      {formatMoney(estimate.totals?.grand_total)}
+                      {formatMoney(invoice.totals?.grand_total)}
                     </td>
                     <td className="px-5 py-3 text-right space-x-1">
                       {hasPermission('estimates.edit') && (
                         <EditButton
-                          onClick={() => navigate(`/estimates/${estimate.id}`)}
+                          onClick={() => navigate(`/invoices/${invoice.id}`)}
                         />
                       )}
                       {hasPermission('estimates.delete') && (
                         <DeleteButton
-                          onClick={() => { void handleDelete(estimate); }}
+                          onClick={() => { void handleDelete(invoice); }}
                         />
                       )}
                     </td>
