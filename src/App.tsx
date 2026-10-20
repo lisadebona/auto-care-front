@@ -20,6 +20,7 @@ import Categories from './pages/Categories';
 import GeneralSettings from './pages/GeneralSettings';
 import FeesAndRates from './pages/FeesAndRates';
 import Miscellaneous from './pages/Miscellaneous';
+import Messages from './pages/Messages';
 import ProtectedRoute from './components/ProtectedRoute';
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="/categories" element={<Categories />} />
             <Route path="/users" element={<Users />} />
             <Route path="/customers" element={<Customers />} />
+            <Route path="/messages" element={<Messages />} />
             <Route path="/vehicles" element={<Vehicles />} />
             <Route path="/estimates" element={<Estimates />} />
             <Route path="/orders" element={<Orders />} />

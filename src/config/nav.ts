@@ -38,6 +38,12 @@ export const navGroups: NavItem[] = [
     ],
   },
   {
+    type: 'link',
+    title: 'Messages',
+    to: '/messages',
+    icon: 'messages',
+  },
+  {
     type: 'group',
     title: 'Settings',
     icon: 'settings',

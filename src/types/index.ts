@@ -290,7 +290,23 @@ export type RegisterFormData = {
 
 export type ValidationErrors = Record<string, string[]>;
 
-export type NavIcon = 'dashboard' | 'inventory' | 'people' | 'settings' | 'transactions';
+export type EmailMessage = {
+  id: number;
+  mailgun_id: string;
+  subject: string | null;
+  from_email: string | null;
+  from_name: string | null;
+  to_email: string | null;
+  to_name: string | null;
+  text_body?: string | null;
+  html_body?: string | null;
+  sent_at: string | null;
+  is_read: boolean;
+  synced_at: string | null;
+  delivery_note?: string | null;
+};
+
+export type NavIcon = 'dashboard' | 'inventory' | 'people' | 'settings' | 'transactions' | 'messages';
 
 export type NavLinkItem = {
   type: 'link';
