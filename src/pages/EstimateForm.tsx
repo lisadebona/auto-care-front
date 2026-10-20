@@ -699,6 +699,12 @@ export default function EstimateForm() {
   };
 
   const handleCustomerChange = (value: string) => {
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next.customer_id;
+      delete next.vehicle_id;
+      return next;
+    });
     setForm((current) => ({
       ...current,
       customer_id: value,
@@ -707,6 +713,11 @@ export default function EstimateForm() {
   };
 
   const handleVehicleChange = (value: string) => {
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next.vehicle_id;
+      return next;
+    });
     setForm((current) => ({ ...current, vehicle_id: value }));
   };
 
@@ -754,6 +765,12 @@ export default function EstimateForm() {
           home_zip_code: created.home_zip_code,
         }].sort((a, b) => a.name.localeCompare(b.name)),
       }));
+      setFieldErrors((current) => {
+        const next = { ...current };
+        delete next.customer_id;
+        delete next.vehicle_id;
+        return next;
+      });
       setForm((current) => ({ ...current, customer_id: String(created.id), vehicle_id: '' }));
       setShowCustomerModal(false);
       setCustomerForm({ first_name: '', last_name: '', phone: '', email: '' });
@@ -811,6 +828,11 @@ export default function EstimateForm() {
           },
         ],
       }));
+      setFieldErrors((current) => {
+        const next = { ...current };
+        delete next.vehicle_id;
+        return next;
+      });
       setForm((current) => ({ ...current, vehicle_id: String(created.id) }));
       setShowVehicleModal(false);
       setVehicleForm(emptyVehicleForm());
@@ -831,12 +853,24 @@ export default function EstimateForm() {
   const saveEstimate = async (closeAfter = false) => {
     if (!canEdit) return;
 
+    const missing: ValidationErrors = {};
+    if (!form.customer_id) {
+      missing.customer_id = ['Customer name is required.'];
+    }
+    if (!form.vehicle_id) {
+      missing.vehicle_id = ['Customer vehicle is required.'];
+    }
+    if (Object.keys(missing).length > 0) {
+      setFieldErrors(missing);
+      return;
+    }
+
     setFieldErrors({});
     setSubmitting(true);
 
     const payload = {
       customer_id: Number(form.customer_id),
-      vehicle_id: form.vehicle_id ? Number(form.vehicle_id) : null,
+      vehicle_id: Number(form.vehicle_id),
       service_writer_id: form.service_writer_id ? Number(form.service_writer_id) : null,
       due_date: form.due_date || null,
       customer_comments: form.customer_comments || null,
@@ -977,7 +1011,9 @@ export default function EstimateForm() {
 
         <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="estimate-customer">Customer Name</label>
+            <label className="block text-sm font-medium mb-1" htmlFor="estimate-customer">
+              Customer Name<span className="text-red-500"> *</span>
+            </label>
             <SearchableSelect
               id="estimate-customer"
               value={form.customer_id}
@@ -985,6 +1021,7 @@ export default function EstimateForm() {
               searchPlaceholder="Search customers"
               emptyLabel="No customers."
               disabled={!canEdit}
+              required
               options={options.customers.map((customer) => ({
                 value: String(customer.id),
                 label: customer.name,
@@ -996,7 +1033,9 @@ export default function EstimateForm() {
             {fieldErrors.customer_id && <p className="mt-1 text-xs text-red-500">{fieldErrors.customer_id[0]}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="estimate-vehicle">Customer Vehicle</label>
+            <label className="block text-sm font-medium mb-1" htmlFor="estimate-vehicle">
+              Customer Vehicle<span className="text-red-500"> *</span>
+            </label>
             <SearchableSelect
               id="estimate-vehicle"
               value={form.vehicle_id}
@@ -1004,6 +1043,7 @@ export default function EstimateForm() {
               searchPlaceholder="Search vehicles"
               emptyLabel="No vehicles."
               disabled={!canEdit || !form.customer_id}
+              required
               options={customerVehicles.map((vehicle) => ({
                 value: String(vehicle.id),
                 label: vehicle.name,

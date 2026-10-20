@@ -22,6 +22,7 @@ export function SearchableSelect({
   searchPlaceholder,
   emptyLabel = 'Nothing to show.',
   disabled = false,
+  required = false,
   createLabel,
   onChange,
   onCreate,
@@ -33,6 +34,7 @@ export function SearchableSelect({
   searchPlaceholder: string;
   emptyLabel?: string;
   disabled?: boolean;
+  required?: boolean;
   createLabel?: string;
   onChange: (value: string) => void;
   onCreate?: () => void;
@@ -106,6 +108,7 @@ export function SearchableSelect({
         type="button"
         className="form-select flex w-full items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
         disabled={disabled}
+        aria-required={required}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
