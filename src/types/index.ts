@@ -256,6 +256,18 @@ export type EstimateOptionItem = {
   id: number;
   name: string;
   customer_id?: number;
+  phone?: string | null;
+  email?: string | null;
+  home_address?: string | null;
+  home_city?: string | null;
+  home_state?: string | null;
+  home_zip_code?: string | null;
+  year?: number;
+  make?: string;
+  model?: string;
+  sub_model?: string | null;
+  vin?: string | null;
+  mileage?: number | null;
 };
 
 export type EstimateTechnician = {
@@ -279,6 +291,7 @@ export type EstimateOptions = {
   technicians: EstimateTechnician[];
   customers: EstimateOptionItem[];
   vehicles: EstimateOptionItem[];
+  shop: GeneralSettings;
 };
 
 export type RegisterFormData = {

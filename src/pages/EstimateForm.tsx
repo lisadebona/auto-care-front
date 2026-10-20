@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { DeleteButton } from '../components/ActionButtons';
 import DashboardLayout from '../components/DashboardLayout';
+import InvoicePrint from '../components/InvoicePrint';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { ItemTypeIcon, ServiceLineGroups, lineItemGroupMeta, lineItemGroupOrder } from '../components/ServiceLineGroups';
 import apiClient from '../api/axios';
@@ -11,6 +12,7 @@ import { usePermission } from '../hooks/usePermission';
 import { formatUsPhone } from '../utils/format';
 import type {
   CannedJob,
+  Customer,
   Estimate,
   EstimateItemType,
   EstimateOptions,
@@ -299,6 +301,19 @@ const emptyOptions: EstimateOptions = {
   technicians: [],
   customers: [],
   vehicles: [],
+  shop: {
+    company_name: null,
+    website: null,
+    logo_url: null,
+    email: null,
+    phone: null,
+    timezone: 'UTC',
+    address: null,
+    city: null,
+    state: null,
+    zip_code: null,
+    country: null,
+  },
 };
 
 export default function EstimateForm() {
@@ -345,6 +360,7 @@ export default function EstimateForm() {
   const [vehicleOptions, setVehicleOptions] = useState<VehicleOptions>(emptyVehicleOptions);
   const [vehicleErrors, setVehicleErrors] = useState<ValidationErrors>({});
   const [creatingVehicle, setCreatingVehicle] = useState(false);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
 
   const customerVehicles = useMemo(
     () => options.vehicles.filter((vehicle) => !form.customer_id || String(vehicle.customer_id) === form.customer_id),
@@ -389,6 +405,70 @@ export default function EstimateForm() {
     const grand = buckets.subtotal - buckets.discount + buckets.shopSupplies + buckets.epa + buckets.tax;
     return { ...buckets, grand, paid: 0 };
   }, [form.services]);
+
+  const invoiceData = useMemo(() => {
+    const customer = options.customers.find((item) => String(item.id) === form.customer_id);
+    const vehicle = customerVehicles.find((item) => String(item.id) === form.vehicle_id);
+    const writer = options.service_writers.find((item) => String(item.id) === form.service_writer_id);
+
+    return {
+      shop: options.shop,
+      invoiceNumber,
+      estimateNumber,
+      orderNumber,
+      poNumber: form.po_number,
+      dueDate: form.due_date,
+      createdAt,
+      paymentTerms: form.payment_terms,
+      serviceWriter: writer?.name ?? '',
+      authorized: form.authorized,
+      customer: customer
+        ? {
+          name: customer.name,
+          phone: customer.phone,
+          email: customer.email,
+          address: customer.home_address,
+          city: customer.home_city,
+          state: customer.home_state,
+          zip: customer.home_zip_code,
+        }
+        : null,
+      vehicle: vehicle
+        ? {
+          name: vehicle.name,
+          vin: vehicle.vin,
+          mileage: vehicle.mileage,
+        }
+        : null,
+      customerComments: form.customer_comments,
+      recommendations: form.recommendations,
+      services: form.services.map((service) => ({
+        name: service.name,
+        notes: service.notes,
+        lineItems: service.line_items.map((item) => ({
+          type: item.type,
+          description: item.description,
+          quantity: item.quantity,
+          price: item.price,
+          discount: item.discount,
+          remarks: item.remarks,
+          technicianName: item.technician_name,
+        })),
+      })),
+      totals,
+    };
+  }, [
+    createdAt,
+    customerVehicles,
+    estimateNumber,
+    form,
+    invoiceNumber,
+    options.customers,
+    options.service_writers,
+    options.shop,
+    orderNumber,
+    totals,
+  ]);
 
   useEffect(() => {
     const load = async () => {
@@ -654,7 +734,7 @@ export default function EstimateForm() {
     setCustomerErrors({});
     setCreatingCustomer(true);
     try {
-      const response = await apiClient.post<{ id: number; name: string }>('/api/customers', {
+      const response = await apiClient.post<Customer>('/api/customers', {
         first_name: customerForm.first_name,
         last_name: customerForm.last_name,
         phone: customerForm.phone,
@@ -663,7 +743,16 @@ export default function EstimateForm() {
       const created = response.data;
       setOptions((current) => ({
         ...current,
-        customers: [...current.customers, { id: created.id, name: created.name }].sort((a, b) => a.name.localeCompare(b.name)),
+        customers: [...current.customers, {
+          id: created.id,
+          name: created.name,
+          phone: created.phone,
+          email: created.email,
+          home_address: created.home_address,
+          home_city: created.home_city,
+          home_state: created.home_state,
+          home_zip_code: created.home_zip_code,
+        }].sort((a, b) => a.name.localeCompare(b.name)),
       }));
       setForm((current) => ({ ...current, customer_id: String(created.id), vehicle_id: '' }));
       setShowCustomerModal(false);
@@ -713,6 +802,12 @@ export default function EstimateForm() {
             id: created.id,
             customer_id: created.customer_id,
             name: created.name,
+            year: created.year,
+            make: created.make,
+            model: created.model,
+            sub_model: created.sub_model,
+            vin: created.vin,
+            mileage: created.mileage,
           },
         ],
       }));
@@ -851,7 +946,11 @@ export default function EstimateForm() {
             <p className="mt-1 text-sm text-gray-500">Labels: Add +</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className="btn border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200" disabled>
+            <button
+              type="button"
+              className="btn border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200"
+              onClick={() => setInvoiceOpen(true)}
+            >
               Print
             </button>
             <button type="button" className="btn bg-teal-600 text-white hover:bg-teal-500" disabled>
@@ -1684,6 +1783,10 @@ export default function EstimateForm() {
             </form>
           </div>
         </div>
+      )}
+
+      {invoiceOpen && (
+        <InvoicePrint data={invoiceData} onClose={() => setInvoiceOpen(false)} />
       )}
     </DashboardLayout>
   );

@@ -75,3 +75,51 @@
     border-color: var(--color-gray-200, currentColor);
   }
 }
+
+.invoice-print-root {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  overflow: auto;
+  background: rgb(17 24 39 / 0.55);
+  text-align: left;
+}
+
+.invoice-sheet,
+.invoice-sheet * {
+  color-scheme: light;
+}
+
+.invoice-keep,
+.invoice-sheet tr {
+  break-inside: avoid;
+}
+
+@media print {
+  @page {
+    size: letter;
+    margin: 0.5in;
+  }
+
+  body:has(.invoice-print-root) #root {
+    display: none !important;
+  }
+
+  .invoice-print-root {
+    position: static;
+    overflow: visible;
+    background: #fff;
+  }
+
+  .invoice-print-toolbar {
+    display: none !important;
+  }
+
+  .invoice-sheet {
+    margin: 0 !important;
+    max-width: none !important;
+    width: auto !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+}
