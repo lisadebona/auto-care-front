@@ -1,4 +1,5 @@
 import { useAuth } from '../context/AuthContext';
+import MessageNotifications from './MessageNotifications';
 import ThemeToggle from './ThemeToggle';
 
 type HeaderProps = {
@@ -33,6 +34,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
           </button>
 
           <div className="flex items-center gap-3 ml-auto">
+            <MessageNotifications />
             <ThemeToggle />
             <hr className="w-px h-6 bg-gray-200 dark:bg-gray-700/60 border-none" />
             <div className="flex items-center gap-3">

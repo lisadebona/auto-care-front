@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
 import { SortHeader, TablePagination } from '../components/TableControls';
@@ -76,6 +77,9 @@ function StarIcon({ filled }: { filled: boolean }) {
 
 export default function Products() {
   const { hasPermission } = usePermission();
+  const { id: routeId } = useParams();
+  const navigate = useNavigate();
+  const openedRouteId = useRef<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<CatalogOption[]>([]);
   const [categories, setCategories] = useState<CatalogOption[]>([]);
@@ -148,6 +152,9 @@ export default function Products() {
     setForm(emptyForm(defaultCategoryId));
     resetGallery();
     setFieldErrors({});
+    if (routeId) {
+      navigate('/products');
+    }
   };
 
   const openCreate = () => {
@@ -182,6 +189,24 @@ export default function Products() {
     const mainImage = product.images.find((image) => image.is_main) ?? product.images[0];
     resetGallery(items, mainImage ? `existing-${mainImage.id}` : null);
   };
+
+  useEffect(() => {
+    if (!routeId) {
+      openedRouteId.current = null;
+      return;
+    }
+    if (loading || openedRouteId.current === routeId) {
+      return;
+    }
+
+    const product = products.find((item) => String(item.id) === routeId);
+    if (!product) {
+      return;
+    }
+
+    openedRouteId.current = routeId;
+    openEdit(product);
+  }, [loading, products, routeId]);
 
   const addPhotos = (fileList: FileList | null) => {
     const files = Array.from(fileList ?? []).slice(0, Math.max(MAX_PHOTOS - gallery.length, 0));
@@ -313,6 +338,9 @@ export default function Products() {
 
       {loading && <div className="py-8 text-sm text-center text-gray-500">Loading products…</div>}
       {!loading && error && <div className="mb-4 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">{error}</div>}
+      {!loading && !error && routeId && !products.some((product) => String(product.id) === routeId) && (
+        <div className="mb-4 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">Product not found.</div>
+      )}
 
       {!loading && !error && (
         <div className="bg-white dark:bg-gray-800 shadow-xs rounded-xl overflow-x-auto">
@@ -338,9 +366,34 @@ export default function Products() {
               {table.pageRows.map((product, index) => (
                 <tr key={product.id}>
                   <td className="p-2 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
-                  <td className="p-2 font-medium text-gray-800 dark:text-gray-100">{product.name}</td>
-                  <td className="p-2 text-gray-600 dark:text-gray-300">{product.brand_name || '—'}</td>
-                  <td className="p-2 text-gray-600 dark:text-gray-300">{product.category_name || '—'}</td>
+                  <td className="p-2">
+                    <Link
+                      to={`/products/${product.id}`}
+                      className="font-medium text-violet-600 dark:text-violet-400 hover:underline"
+                    >
+                      {product.name}
+                    </Link>
+                  </td>
+                  <td className="p-2 text-gray-600 dark:text-gray-300">
+                    {product.brand_id && product.brand_name ? (
+                      <Link
+                        to={`/brands/${product.brand_id}`}
+                        className="text-violet-600 dark:text-violet-400 hover:underline"
+                      >
+                        {product.brand_name}
+                      </Link>
+                    ) : '—'}
+                  </td>
+                  <td className="p-2 text-gray-600 dark:text-gray-300">
+                    {product.category_id && product.category_name ? (
+                      <Link
+                        to={`/categories/${product.category_id}`}
+                        className="text-violet-600 dark:text-violet-400 hover:underline"
+                      >
+                        {product.category_name}
+                      </Link>
+                    ) : '—'}
+                  </td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">{product.stock_quantity}</td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">${product.unit_price}</td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">${product.retail_price}</td>

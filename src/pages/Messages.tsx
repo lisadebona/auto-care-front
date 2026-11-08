@@ -1,5 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
+import { notifyMessagesChanged } from '../components/MessageNotifications';
 import ModulePage from '../components/ModulePage';
 import apiClient from '../api/axios';
 import { usePermission } from '../hooks/usePermission';
@@ -42,6 +44,8 @@ function formatWhen(value: string | null): string {
 
 export default function Messages() {
   const { hasPermission } = usePermission();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openedFromNotification = useRef<number | null>(null);
   const [messages, setMessages] = useState<EmailMessage[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -83,7 +87,7 @@ export default function Messages() {
     return () => window.clearTimeout(timer);
   }, [search, refreshKey]);
 
-  const openMessage = async (message: EmailMessage) => {
+  const openMessage = useCallback(async (message: Pick<EmailMessage, 'id'>) => {
     setOpening(true);
     setError('');
     try {
@@ -92,6 +96,7 @@ export default function Messages() {
       setMessages((current) => current.map((item) => (
         item.id === message.id ? { ...item, is_read: true } : item
       )));
+      notifyMessagesChanged();
     } catch (err: unknown) {
       if (isAxiosError(err)) {
         const responseMessage = err.response?.data?.message;
@@ -102,7 +107,19 @@ export default function Messages() {
     } finally {
       setOpening(false);
     }
-  };
+  }, []);
+
+  const requestedMessageId = Number(searchParams.get('message') || 0);
+
+  useEffect(() => {
+    if (!requestedMessageId || openedFromNotification.current === requestedMessageId) {
+      return;
+    }
+
+    openedFromNotification.current = requestedMessageId;
+    void openMessage({ id: requestedMessageId });
+    setSearchParams({}, { replace: true });
+  }, [openMessage, requestedMessageId, setSearchParams]);
 
   const handleSend = async (event: FormEvent) => {
     event.preventDefault();
@@ -117,6 +134,7 @@ export default function Messages() {
       setComposeOpen(false);
       setForm(emptyForm());
       setRefreshKey((current) => current + 1);
+      notifyMessagesChanged();
     } catch (err: unknown) {
       if (isAxiosError(err)) {
         const errors = (err.response?.data as { errors?: ValidationErrors } | undefined)?.errors;

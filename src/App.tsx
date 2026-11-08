@@ -35,11 +35,14 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/products" element={<Products />} />
+            <Route path="/products/:id" element={<Products />} />
             <Route path="/canned-jobs" element={<CannedJobs />} />
             <Route path="/canned-jobs/new" element={<CannedJobForm />} />
             <Route path="/canned-jobs/:id" element={<CannedJobForm />} />
             <Route path="/brands" element={<Brands />} />
+            <Route path="/brands/:id" element={<Brands />} />
             <Route path="/categories" element={<Categories />} />
+            <Route path="/categories/:id" element={<Categories />} />
             <Route path="/users" element={<Users />} />
             <Route path="/customers" element={<Customers />} />
             <Route path="/messages" element={<Messages />} />

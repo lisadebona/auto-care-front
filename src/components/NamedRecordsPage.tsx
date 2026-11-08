@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
 import { SortHeader, TablePagination } from './TableControls';
@@ -24,6 +25,10 @@ export default function NamedRecordsPage({
   description,
 }: NamedRecordsPageProps) {
   const { hasPermission } = usePermission();
+  const { id: routeId } = useParams();
+  const navigate = useNavigate();
+  const openedRouteId = useRef<string | null>(null);
+  const listPath = endpoint.replace(/^\/api/, '');
   const [records, setRecords] = useState<NamedRecord[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -67,11 +72,35 @@ export default function NamedRecordsPage({
     return () => window.clearTimeout(timer);
   }, [search]);
 
+  useEffect(() => {
+    if (!routeId) {
+      openedRouteId.current = null;
+      return;
+    }
+    if (loading || openedRouteId.current === routeId) {
+      return;
+    }
+
+    const record = records.find((item) => String(item.id) === routeId);
+    if (!record) {
+      return;
+    }
+
+    openedRouteId.current = routeId;
+    setFieldErrors({});
+    setEditing(record);
+    setIsCreating(false);
+    setName(record.name);
+  }, [loading, records, routeId]);
+
   const closeModal = () => {
     setIsCreating(false);
     setEditing(null);
     setName('');
     setFieldErrors({});
+    if (routeId) {
+      navigate(listPath);
+    }
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -152,6 +181,9 @@ export default function NamedRecordsPage({
       </div>
 
       {deleteError && <div className="mb-4 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">{deleteError}</div>}
+      {!loading && routeId && !records.some((record) => String(record.id) === routeId) && (
+        <div className="mb-4 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">{singular} not found.</div>
+      )}
       {loading && <div className="py-8 text-sm text-center text-gray-500">Loading {plural.toLowerCase()}…</div>}
       {!loading && error && <div className="mb-4 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">{error}</div>}
 
@@ -175,7 +207,14 @@ export default function NamedRecordsPage({
               {table.pageRows.map((record, index) => (
                 <tr key={record.id}>
                   <td className="p-2 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
-                  <td className="p-2 font-medium text-gray-800 dark:text-gray-100">{record.name}</td>
+                  <td className="p-2">
+                    <Link
+                      to={`${listPath}/${record.id}`}
+                      className="font-medium text-violet-600 dark:text-violet-400 hover:underline"
+                    >
+                      {record.name}
+                    </Link>
+                  </td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">{record.products_count ?? 0}</td>
                   <td className="p-2 text-right whitespace-nowrap space-x-1">
                     {hasPermission(`${permissionPrefix}.edit`) && (
