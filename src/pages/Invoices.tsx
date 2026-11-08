@@ -130,8 +130,13 @@ export default function Invoices() {
                         {invoice.invoice_number ?? '—'}
                       </Link>
                     </td>
-                    <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
-                      {invoice.display_number}
+                    <td className="px-5 py-3">
+                      <Link
+                        to={`/estimates/${invoice.uuid}`}
+                        className="text-violet-600 dark:text-violet-400 hover:underline"
+                      >
+                        {invoice.display_number}
+                      </Link>
                     </td>
                     <td className="px-5 py-3">
                       {invoice.customer ? (

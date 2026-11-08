@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { DeleteButton } from '../components/ActionButtons';
 import DashboardLayout from '../components/DashboardLayout';
@@ -318,7 +318,9 @@ const emptyOptions: EstimateOptions = {
 
 export default function EstimateForm() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const isNew = !id || id === 'new';
+  const openedAsEstimate = location.pathname.startsWith('/estimates/');
   const navigate = useNavigate();
   const { user } = useAuth();
   const { hasPermission } = usePermission();
@@ -496,7 +498,12 @@ export default function EstimateForm() {
             response.data.estimate.workflow,
             response.data.estimate.uuid,
           );
-          if (window.location.pathname !== nextPath) {
+          if (window.location.pathname.startsWith('/estimates/')) {
+            const estimatePath = `/estimates/${response.data.estimate.uuid}`;
+            if (window.location.pathname !== estimatePath) {
+              navigate(estimatePath, { replace: true });
+            }
+          } else if (window.location.pathname !== nextPath) {
             navigate(nextPath, { replace: true });
           }
         }
@@ -963,18 +970,20 @@ export default function EstimateForm() {
           <div>
             <div className="flex items-center gap-3">
               <Link
-                to={form.order_status === 'invoice' ? '/invoices' : form.workflow === 'in_progress' ? '/orders' : '/estimates'}
+                to={openedAsEstimate ? '/estimates' : form.order_status === 'invoice' ? '/invoices' : form.workflow === 'in_progress' ? '/orders' : '/estimates'}
                 className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
               >
-                {form.order_status === 'invoice' ? 'Invoices' : form.workflow === 'in_progress' ? 'Orders' : 'Estimates'}
+                {openedAsEstimate ? 'Estimates' : form.order_status === 'invoice' ? 'Invoices' : form.workflow === 'in_progress' ? 'Orders' : 'Estimates'}
               </Link>
               <span className="text-gray-300">/</span>
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                {form.order_status === 'invoice'
-                  ? `Invoice (${invoiceNumber ?? 'New'})`
-                  : form.workflow === 'in_progress'
-                    ? `Order (${orderNumber ?? 'New'})`
-                    : `Estimate (${estimateNumber})`}
+                {openedAsEstimate
+                  ? `Estimate (${estimateNumber})`
+                  : form.order_status === 'invoice'
+                    ? `Invoice (${invoiceNumber ?? 'New'})`
+                    : form.workflow === 'in_progress'
+                      ? `Order (${orderNumber ?? 'New'})`
+                      : `Estimate (${estimateNumber})`}
               </h1>
             </div>
             <p className="mt-1 text-sm text-gray-500">Labels: Add +</p>
@@ -1439,7 +1448,13 @@ export default function EstimateForm() {
               </div>
               <div className="flex justify-between gap-2">
                 <span className="text-gray-500">Estimate</span>
-                <span className="font-medium">{estimateNumber}</span>
+                <span className="font-medium">
+                  {!isNew && id && !openedAsEstimate ? (
+                    <Link to={`/estimates/${id}`} className="text-violet-600 dark:text-violet-400 hover:underline">
+                      {estimateNumber}
+                    </Link>
+                  ) : estimateNumber}
+                </span>
               </div>
               {(form.workflow === 'in_progress' || orderNumber) && (
                 <div className="flex justify-between gap-2">

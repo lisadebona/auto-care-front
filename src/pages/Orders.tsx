@@ -130,8 +130,13 @@ export default function Orders() {
                         {order.order_number ?? '—'}
                       </Link>
                     </td>
-                    <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
-                      {order.display_number}
+                    <td className="px-5 py-3">
+                      <Link
+                        to={`/estimates/${order.uuid}`}
+                        className="text-violet-600 dark:text-violet-400 hover:underline"
+                      >
+                        {order.display_number}
+                      </Link>
                     </td>
                     <td className="px-5 py-3">
                       {order.customer ? (
