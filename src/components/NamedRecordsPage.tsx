@@ -81,7 +81,7 @@ export default function NamedRecordsPage({
       return;
     }
 
-    const record = records.find((item) => String(item.id) === routeId);
+    const record = records.find((item) => item.uuid === routeId);
     if (!record) {
       return;
     }
@@ -109,7 +109,7 @@ export default function NamedRecordsPage({
     setSubmitting(true);
     try {
       if (editing) {
-        await apiClient.put(`${endpoint}/${editing.id}`, { name });
+        await apiClient.put(`${endpoint}/${editing.uuid}`, { name });
       } else {
         await apiClient.post(endpoint, { name });
       }
@@ -135,7 +135,7 @@ export default function NamedRecordsPage({
     }
     setDeleteError('');
     try {
-      await apiClient.delete(`${endpoint}/${record.id}`);
+      await apiClient.delete(`${endpoint}/${record.uuid}`);
       await loadRecords();
     } catch (err: unknown) {
       if (isAxiosError(err) && err.response?.status === 422) {
@@ -181,7 +181,7 @@ export default function NamedRecordsPage({
       </div>
 
       {deleteError && <div className="mb-4 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">{deleteError}</div>}
-      {!loading && routeId && !records.some((record) => String(record.id) === routeId) && (
+      {!loading && routeId && !records.some((record) => record.uuid === routeId) && (
         <div className="mb-4 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">{singular} not found.</div>
       )}
       {loading && <div className="py-8 text-sm text-center text-gray-500">Loading {plural.toLowerCase()}…</div>}
@@ -209,7 +209,7 @@ export default function NamedRecordsPage({
                   <td className="p-2 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                   <td className="p-2">
                     <Link
-                      to={`${listPath}/${record.id}`}
+                      to={`${listPath}/${record.uuid}`}
                       className="font-medium text-violet-600 dark:text-violet-400 hover:underline"
                     >
                       {record.name}

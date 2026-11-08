@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
 import { SortHeader, TablePagination } from '../components/TableControls';
@@ -149,6 +149,9 @@ const tabs: Array<{ id: CustomerTab; label: string }> = [
 
 export default function Customers() {
   const { hasPermission } = usePermission();
+  const { id: routeId } = useParams();
+  const navigate = useNavigate();
+  const openedRouteId = useRef<string | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [countries, setCountries] = useState<string[]>([DEFAULT_COUNTRY]);
   const [search, setSearch] = useState('');
@@ -239,7 +242,7 @@ export default function Customers() {
     void loadVehicles();
   }, [editingCustomer, activeTab]);
 
-  const closeModal = () => {
+  const closeModal = (redirect = true) => {
     setIsCreating(false);
     setEditingCustomer(null);
     setForm(emptyForm());
@@ -247,6 +250,9 @@ export default function Customers() {
     setActiveTab('info');
     setCustomerVehicles([]);
     setVehiclesError('');
+    if (redirect && routeId) {
+      navigate('/customers');
+    }
   };
 
   const openCreate = () => {
@@ -283,6 +289,24 @@ export default function Customers() {
     });
   };
 
+  useEffect(() => {
+    if (!routeId) {
+      openedRouteId.current = null;
+      return;
+    }
+    if (loading || openedRouteId.current === routeId) {
+      return;
+    }
+
+    const customer = customers.find((item) => item.uuid === routeId);
+    if (!customer) {
+      return;
+    }
+
+    openedRouteId.current = routeId;
+    openEdit(customer);
+  }, [customers, loading, routeId]);
+
   const setFormField = (field: keyof CustomerForm, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
@@ -313,7 +337,7 @@ export default function Customers() {
 
     try {
       if (editingCustomer) {
-        await apiClient.put(`/api/customers/${editingCustomer.id}`, payload);
+        await apiClient.put(`/api/customers/${editingCustomer.uuid}`, payload);
       } else {
         await apiClient.post('/api/customers', payload);
       }
@@ -347,7 +371,7 @@ export default function Customers() {
     }
 
     try {
-      await apiClient.delete(`/api/customers/${customer.id}`);
+      await apiClient.delete(`/api/customers/${customer.uuid}`);
       await loadCustomers();
     } catch (err: unknown) {
       if (isAxiosError(err)) {
@@ -399,6 +423,9 @@ export default function Customers() {
           {!loading && error && (
             <div className="mx-2 mb-2 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">{error}</div>
           )}
+          {!loading && !error && routeId && !customers.some((customer) => customer.uuid === routeId) && (
+            <div className="mx-2 mb-2 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">Customer not found.</div>
+          )}
 
           {!loading && !error && customers.length === 0 && (
             <div className="px-2 py-8 text-sm text-center text-gray-500 dark:text-gray-400">No customers found.</div>
@@ -422,7 +449,9 @@ export default function Customers() {
                     <tr key={customer.id}>
                       <td className="p-2 whitespace-nowrap text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                       <td className="p-2 whitespace-nowrap">
-                        <div className="font-medium text-gray-800 dark:text-gray-100">{customer.name}</div>
+                        <Link to={`/customers/${customer.uuid}`} className="font-medium text-violet-600 dark:text-violet-400 hover:underline">
+                          {customer.name}
+                        </Link>
                       </td>
                       <td className="p-2 whitespace-nowrap text-gray-600 dark:text-gray-300">{customer.phone}</td>
                       <td className="p-2 whitespace-nowrap text-gray-600 dark:text-gray-300">{customer.email || '—'}</td>
@@ -605,7 +634,7 @@ export default function Customers() {
                             <Link
                               to={`/vehicles?customer_id=${editingCustomer.id}`}
                               className="text-sm font-medium text-violet-500 hover:text-violet-600"
-                              onClick={closeModal}
+                              onClick={() => closeModal(false)}
                             >
                               Add Vehicle
                             </Link>
@@ -643,7 +672,9 @@ export default function Customers() {
                                   <tr key={vehicle.id}>
                                     <td className="p-2 whitespace-nowrap text-gray-500 dark:text-gray-400">{vehiclesTable.offset + index + 1}</td>
                                     <td className="p-2">
-                                      <div className="font-medium text-gray-800 dark:text-gray-100">{vehicle.name}</div>
+                                      <Link to={`/vehicles/${vehicle.uuid}`} className="font-medium text-violet-600 dark:text-violet-400 hover:underline">
+                                        {vehicle.name}
+                                      </Link>
                                       {vehicle.engine_size && (
                                         <div className="text-xs text-gray-500 dark:text-gray-400">{vehicle.engine_size}</div>
                                       )}

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 export type User = {
   id: number;
+  uuid: string;
   name: string;
   email: string;
   phone?: string | null;
@@ -15,6 +16,7 @@ export type User = {
 
 export type Customer = {
   id: number;
+  uuid: string;
   first_name: string;
   last_name: string;
   name: string;
@@ -38,9 +40,11 @@ export type Customer = {
 
 export type Vehicle = {
   id: number;
+  uuid: string;
   customer_id: number;
   customer?: {
     id: number;
+    uuid: string;
     first_name: string;
     last_name: string;
     name?: string;
@@ -84,6 +88,7 @@ export type Permission = {
 
 export type NamedRecord = {
   id: number;
+  uuid: string;
   name: string;
   products_count: number;
 };
@@ -96,6 +101,7 @@ export type ProductImage = {
 
 export type Product = {
   id: number;
+  uuid: string;
   name: string;
   description: string | null;
   unit_price: string;
@@ -103,8 +109,10 @@ export type Product = {
   retail_price: string;
   stock_quantity: number;
   brand_id: number | null;
+  brand_uuid: string | null;
   brand_name: string | null;
   category_id: number;
+  category_uuid: string | null;
   category_name: string | null;
   upc_code: string | null;
   part_number: string | null;
@@ -204,6 +212,7 @@ export type EstimateTotals = {
 
 export type Estimate = {
   id: number;
+  uuid: string;
   number: number;
   display_number: string;
   invoice_number?: string | null;
@@ -223,8 +232,8 @@ export type Estimate = {
   authorized_at?: string | null;
   is_authorized: boolean;
   labels?: string[] | null;
-  customer?: Pick<Customer, 'id' | 'first_name' | 'last_name' | 'name' | 'phone' | 'email'> | null;
-  vehicle?: Pick<Vehicle, 'id' | 'customer_id' | 'year' | 'make' | 'model' | 'sub_model' | 'name' | 'vin' | 'mileage'> | null;
+  customer?: Pick<Customer, 'id' | 'uuid' | 'first_name' | 'last_name' | 'name' | 'phone' | 'email'> | null;
+  vehicle?: Pick<Vehicle, 'id' | 'uuid' | 'customer_id' | 'year' | 'make' | 'model' | 'sub_model' | 'name' | 'vin' | 'mileage'> | null;
   service_writer?: Pick<User, 'id' | 'name'> | null;
   services: EstimateService[];
   totals: EstimateTotals;
@@ -245,6 +254,7 @@ export type CannedJobLineItem = {
 
 export type CannedJob = {
   id: number;
+  uuid: string;
   name: string;
   line_items: CannedJobLineItem[];
   subtotal?: string;
@@ -305,6 +315,7 @@ export type ValidationErrors = Record<string, string[]>;
 
 export type EmailMessage = {
   id: number;
+  uuid: string;
   mailgun_id: string;
   subject: string | null;
   from_email: string | null;

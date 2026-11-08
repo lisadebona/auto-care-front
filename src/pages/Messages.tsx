@@ -45,7 +45,7 @@ function formatWhen(value: string | null): string {
 export default function Messages() {
   const { hasPermission } = usePermission();
   const [searchParams, setSearchParams] = useSearchParams();
-  const openedFromNotification = useRef<number | null>(null);
+  const openedFromNotification = useRef<string | null>(null);
   const [messages, setMessages] = useState<EmailMessage[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -87,14 +87,14 @@ export default function Messages() {
     return () => window.clearTimeout(timer);
   }, [search, refreshKey]);
 
-  const openMessage = useCallback(async (message: Pick<EmailMessage, 'id'>) => {
+  const openMessage = useCallback(async (messageUuid: string) => {
     setOpening(true);
     setError('');
     try {
-      const response = await apiClient.get<{ message: EmailMessage }>(`/api/messages/${message.id}`);
+      const response = await apiClient.get<{ message: EmailMessage }>(`/api/messages/${messageUuid}`);
       setSelected(response.data.message);
       setMessages((current) => current.map((item) => (
-        item.id === message.id ? { ...item, is_read: true } : item
+        item.uuid === messageUuid ? { ...item, is_read: true } : item
       )));
       notifyMessagesChanged();
     } catch (err: unknown) {
@@ -109,17 +109,17 @@ export default function Messages() {
     }
   }, []);
 
-  const requestedMessageId = Number(searchParams.get('message') || 0);
+  const requestedMessage = searchParams.get('message') ?? '';
 
   useEffect(() => {
-    if (!requestedMessageId || openedFromNotification.current === requestedMessageId) {
+    if (!requestedMessage || openedFromNotification.current === requestedMessage) {
       return;
     }
 
-    openedFromNotification.current = requestedMessageId;
-    void openMessage({ id: requestedMessageId });
+    openedFromNotification.current = requestedMessage;
+    void openMessage(requestedMessage);
     setSearchParams({}, { replace: true });
-  }, [openMessage, requestedMessageId, setSearchParams]);
+  }, [openMessage, requestedMessage, setSearchParams]);
 
   const handleSend = async (event: FormEvent) => {
     event.preventDefault();
@@ -216,7 +216,7 @@ export default function Messages() {
                   <li key={message.id}>
                     <button
                       type="button"
-                      onClick={() => { void openMessage(message); }}
+                      onClick={() => { void openMessage(message.uuid); }}
                       className={`w-full text-left px-5 py-3 transition ${
                         active
                           ? 'bg-violet-500/10'

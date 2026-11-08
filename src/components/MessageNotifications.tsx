@@ -159,7 +159,7 @@ export default function MessageNotifications() {
                     className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-900/30"
                     onClick={() => {
                       setOpen(false);
-                      navigate(`/messages?message=${message.id}`);
+                      navigate(`/messages?message=${message.uuid}`);
                     }}
                   >
                     <span className="block truncate text-sm font-semibold text-gray-900 dark:text-white">

@@ -64,7 +64,7 @@ export default function Invoices() {
     }
 
     try {
-      await apiClient.delete(`/api/estimates/${invoice.id}`);
+      await apiClient.delete(`/api/estimates/${invoice.uuid}`);
       await loadInvoices();
     } catch (err: unknown) {
       if (isAxiosError(err)) {
@@ -124,7 +124,7 @@ export default function Invoices() {
                     <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                     <td className="px-5 py-3">
                       <Link
-                        to={`/invoices/${invoice.id}`}
+                        to={`/invoices/${invoice.uuid}`}
                         className="font-medium text-violet-600 dark:text-violet-400 hover:underline"
                       >
                         {invoice.invoice_number ?? '—'}
@@ -133,11 +133,19 @@ export default function Invoices() {
                     <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
                       {invoice.display_number}
                     </td>
-                    <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
-                      {invoice.customer?.name ?? '—'}
+                    <td className="px-5 py-3">
+                      {invoice.customer ? (
+                        <Link to={`/customers/${invoice.customer.uuid}`} className="text-violet-600 dark:text-violet-400 hover:underline">
+                          {invoice.customer.name}
+                        </Link>
+                      ) : '—'}
                     </td>
-                    <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
-                      {invoice.vehicle?.name ?? '—'}
+                    <td className="px-5 py-3">
+                      {invoice.vehicle ? (
+                        <Link to={`/vehicles/${invoice.vehicle.uuid}`} className="text-violet-600 dark:text-violet-400 hover:underline">
+                          {invoice.vehicle.name}
+                        </Link>
+                      ) : '—'}
                     </td>
                     <td className="px-5 py-3">
                       <span className="inline-flex rounded-full bg-gray-100 dark:bg-gray-700 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-200">
@@ -150,7 +158,7 @@ export default function Invoices() {
                     <td className="px-5 py-3 text-right space-x-1">
                       {hasPermission('estimates.edit') && (
                         <EditButton
-                          onClick={() => navigate(`/invoices/${invoice.id}`)}
+                          onClick={() => navigate(`/invoices/${invoice.uuid}`)}
                         />
                       )}
                       {hasPermission('estimates.delete') && (

@@ -45,8 +45,10 @@ export default function App() {
             <Route path="/categories/:id" element={<Categories />} />
             <Route path="/users" element={<Users />} />
             <Route path="/customers" element={<Customers />} />
+            <Route path="/customers/:id" element={<Customers />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/vehicles" element={<Vehicles />} />
+            <Route path="/vehicles/:id" element={<Vehicles />} />
             <Route path="/estimates" element={<Estimates />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/orders/:id" element={<EstimateForm />} />

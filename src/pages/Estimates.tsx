@@ -64,7 +64,7 @@ export default function Estimates() {
     }
 
     try {
-      await apiClient.delete(`/api/estimates/${estimate.id}`);
+      await apiClient.delete(`/api/estimates/${estimate.uuid}`);
       await loadEstimates();
     } catch (err: unknown) {
       if (isAxiosError(err)) {
@@ -133,17 +133,25 @@ export default function Estimates() {
                     <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                     <td className="px-5 py-3">
                       <Link
-                        to={`/estimates/${estimate.id}`}
+                        to={`/estimates/${estimate.uuid}`}
                         className="font-medium text-violet-600 dark:text-violet-400 hover:underline"
                       >
                         {estimate.display_number}
                       </Link>
                     </td>
-                    <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
-                      {estimate.customer?.name ?? '—'}
+                    <td className="px-5 py-3">
+                      {estimate.customer ? (
+                        <Link to={`/customers/${estimate.customer.uuid}`} className="text-violet-600 dark:text-violet-400 hover:underline">
+                          {estimate.customer.name}
+                        </Link>
+                      ) : '—'}
                     </td>
-                    <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
-                      {estimate.vehicle?.name ?? '—'}
+                    <td className="px-5 py-3">
+                      {estimate.vehicle ? (
+                        <Link to={`/vehicles/${estimate.vehicle.uuid}`} className="text-violet-600 dark:text-violet-400 hover:underline">
+                          {estimate.vehicle.name}
+                        </Link>
+                      ) : '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
                       {estimate.workflow_label ?? '—'}
@@ -159,7 +167,7 @@ export default function Estimates() {
                     <td className="px-5 py-3 text-right space-x-1">
                       {hasPermission('estimates.edit') && (
                         <EditButton
-                          onClick={() => navigate(`/estimates/${estimate.id}`)}
+                          onClick={() => navigate(`/estimates/${estimate.uuid}`)}
                         />
                       )}
                       {hasPermission('estimates.delete') && (

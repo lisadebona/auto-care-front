@@ -10,6 +10,7 @@ import type { ValidationErrors } from '../types';
 
 type CustomWorkflow = {
   id: number;
+  uuid: string;
   name: string;
   value: string;
 };
@@ -72,7 +73,7 @@ export default function Miscellaneous() {
 
     try {
       if (editing) {
-        await apiClient.put(`/api/workflows/${editing.id}`, { name });
+        await apiClient.put(`/api/workflows/${editing.uuid}`, { name });
       } else {
         await apiClient.post('/api/workflows', { name });
       }
@@ -99,7 +100,7 @@ export default function Miscellaneous() {
 
     setDeleteError('');
     try {
-      await apiClient.delete(`/api/workflows/${workflow.id}`);
+      await apiClient.delete(`/api/workflows/${workflow.uuid}`);
       await loadWorkflows();
     } catch (err: unknown) {
       if (isAxiosError(err) && err.response?.status === 422) {

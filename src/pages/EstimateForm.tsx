@@ -494,7 +494,7 @@ export default function EstimateForm() {
           const nextPath = recordPath(
             response.data.estimate.order_status,
             response.data.estimate.workflow,
-            response.data.estimate.id,
+            response.data.estimate.uuid,
           );
           if (window.location.pathname !== nextPath) {
             navigate(nextPath, { replace: true });
@@ -913,7 +913,7 @@ export default function EstimateForm() {
         if (closeAfter) {
           navigate(listPath);
         } else {
-          navigate(recordPath(payload.order_status, payload.workflow, response.data.estimate.id), { replace: true });
+          navigate(recordPath(payload.order_status, payload.workflow, response.data.estimate.uuid), { replace: true });
         }
       } else {
         await apiClient.put(`/api/estimates/${id}`, payload);

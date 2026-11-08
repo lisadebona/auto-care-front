@@ -202,7 +202,7 @@ export default function Users() {
 
     try {
       if (editingUser) {
-        await apiClient.put(`/api/users/${editingUser.id}`, payload);
+        await apiClient.put(`/api/users/${editingUser.uuid}`, payload);
       } else {
         await apiClient.post('/api/users', payload);
       }

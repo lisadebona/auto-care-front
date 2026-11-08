@@ -9,8 +9,13 @@ import type { EstimateOrderStatus, EstimateWorkflow } from '../types';
 
 type DashboardItem = {
   id: number;
+  uuid: string;
   reference: string;
+  customer_id: number | null;
+  customer_uuid: string | null;
   customer: string | null;
+  vehicle_id: number | null;
+  vehicle_uuid: string | null;
   vehicle: string | null;
   total: string;
   order_status: EstimateOrderStatus;
@@ -90,14 +95,14 @@ function VehicleIcon() {
 
 function recordPath(item: DashboardItem): string {
   if (item.order_status === 'invoice') {
-    return `/invoices/${item.id}`;
+    return `/invoices/${item.uuid}`;
   }
 
   if (item.workflow === 'in_progress') {
-    return `/orders/${item.id}`;
+    return `/orders/${item.uuid}`;
   }
 
-  return `/estimates/${item.id}`;
+  return `/estimates/${item.uuid}`;
 }
 
 export default function Dashboard() {
@@ -186,25 +191,36 @@ export default function Dashboard() {
                   <ul className="divide-y divide-gray-100 dark:divide-gray-700/60">
                     {workflow.items.map((item) => (
                       <li key={item.id}>
-                        <Link
-                          to={recordPath(item)}
-                          className="flex items-start justify-between gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-900/20"
-                        >
+                        <div className="flex items-start justify-between gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-900/20">
                           <div className="min-w-0">
-                            <div className="font-medium text-violet-600 dark:text-violet-400">{item.reference}</div>
-                            <div className="mt-1 flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-200">
+                            <Link to={recordPath(item)} className="font-medium text-violet-600 dark:text-violet-400 hover:underline">
+                              {item.reference}
+                            </Link>
+                            <div className="mt-1 flex items-center gap-1.5 text-sm">
                               <PersonIcon />
-                              <span className="truncate">{item.customer ?? '—'}</span>
+                              {item.customer_uuid && item.customer ? (
+                                <Link to={`/customers/${item.customer_uuid}`} className="truncate text-violet-600 dark:text-violet-400 hover:underline">
+                                  {item.customer}
+                                </Link>
+                              ) : (
+                                <span className="truncate text-gray-700 dark:text-gray-200">{item.customer ?? '—'}</span>
+                              )}
                             </div>
-                            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            <div className="mt-0.5 flex items-center gap-1.5 text-xs">
                               <VehicleIcon />
-                              <span className="truncate">{item.vehicle ?? '—'}</span>
+                              {item.vehicle_uuid && item.vehicle ? (
+                                <Link to={`/vehicles/${item.vehicle_uuid}`} className="truncate text-violet-600 dark:text-violet-400 hover:underline">
+                                  {item.vehicle}
+                                </Link>
+                              ) : (
+                                <span className="truncate text-gray-500 dark:text-gray-400">{item.vehicle ?? '—'}</span>
+                              )}
                             </div>
                           </div>
                           <div className="shrink-0 text-sm font-medium text-gray-800 dark:text-gray-100">
                             {formatMoney(item.total)}
                           </div>
-                        </Link>
+                        </div>
                       </li>
                     ))}
                   </ul>

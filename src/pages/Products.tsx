@@ -199,7 +199,7 @@ export default function Products() {
       return;
     }
 
-    const product = products.find((item) => String(item.id) === routeId);
+    const product = products.find((item) => item.uuid === routeId);
     if (!product) {
       return;
     }
@@ -278,7 +278,7 @@ export default function Products() {
 
     try {
       if (editing) {
-        await postForm(`/api/products/${editing.id}`, body);
+        await postForm(`/api/products/${editing.uuid}`, body);
       } else {
         await postForm('/api/products', body);
       }
@@ -303,7 +303,7 @@ export default function Products() {
       return;
     }
     try {
-      await apiClient.delete(`/api/products/${product.id}`);
+      await apiClient.delete(`/api/products/${product.uuid}`);
       await loadProducts();
     } catch (err: unknown) {
       if (isAxiosError(err)) {
@@ -338,7 +338,7 @@ export default function Products() {
 
       {loading && <div className="py-8 text-sm text-center text-gray-500">Loading products…</div>}
       {!loading && error && <div className="mb-4 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">{error}</div>}
-      {!loading && !error && routeId && !products.some((product) => String(product.id) === routeId) && (
+      {!loading && !error && routeId && !products.some((product) => product.uuid === routeId) && (
         <div className="mb-4 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">Product not found.</div>
       )}
 
@@ -368,16 +368,16 @@ export default function Products() {
                   <td className="p-2 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                   <td className="p-2">
                     <Link
-                      to={`/products/${product.id}`}
+                      to={`/products/${product.uuid}`}
                       className="font-medium text-violet-600 dark:text-violet-400 hover:underline"
                     >
                       {product.name}
                     </Link>
                   </td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">
-                    {product.brand_id && product.brand_name ? (
+                    {product.brand_uuid && product.brand_name ? (
                       <Link
-                        to={`/brands/${product.brand_id}`}
+                        to={`/brands/${product.brand_uuid}`}
                         className="text-violet-600 dark:text-violet-400 hover:underline"
                       >
                         {product.brand_name}
@@ -385,9 +385,9 @@ export default function Products() {
                     ) : '—'}
                   </td>
                   <td className="p-2 text-gray-600 dark:text-gray-300">
-                    {product.category_id && product.category_name ? (
+                    {product.category_uuid && product.category_name ? (
                       <Link
-                        to={`/categories/${product.category_id}`}
+                        to={`/categories/${product.category_uuid}`}
                         className="text-violet-600 dark:text-violet-400 hover:underline"
                       >
                         {product.category_name}

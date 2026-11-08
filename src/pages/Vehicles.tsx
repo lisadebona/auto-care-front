@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import ModulePage from '../components/ModulePage';
 import { SortHeader, TablePagination } from '../components/TableControls';
@@ -62,6 +62,9 @@ function customerDisplayName(customer?: Vehicle['customer'] | Customer | null): 
 
 export default function Vehicles() {
   const { hasPermission } = usePermission();
+  const { id: routeId } = useParams();
+  const navigate = useNavigate();
+  const openedRouteId = useRef<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const imageInput = useRef<HTMLInputElement>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -161,7 +164,7 @@ export default function Vehicles() {
     return () => URL.revokeObjectURL(url);
   }, [image]);
 
-  const closeModal = () => {
+  const closeModal = (redirect = true) => {
     setIsCreating(false);
     setEditingVehicle(null);
     setForm(emptyForm());
@@ -170,6 +173,9 @@ export default function Vehicles() {
     setImagePreview(null);
     setIsDraggingImage(false);
     setFieldErrors({});
+    if (redirect && routeId) {
+      navigate('/vehicles');
+    }
   };
 
   const openCreate = () => {
@@ -203,6 +209,24 @@ export default function Vehicles() {
     setRemoveImage(false);
     setImagePreview(vehicle.image_url ?? null);
   };
+
+  useEffect(() => {
+    if (!routeId) {
+      openedRouteId.current = null;
+      return;
+    }
+    if (loading || openedRouteId.current === routeId) {
+      return;
+    }
+
+    const vehicle = vehicles.find((item) => item.uuid === routeId);
+    if (!vehicle) {
+      return;
+    }
+
+    openedRouteId.current = routeId;
+    openEdit(vehicle);
+  }, [loading, routeId, vehicles]);
 
   const setFormField = (field: keyof VehicleForm) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm((current) => ({ ...current, [field]: e.target.value }));
@@ -283,7 +307,7 @@ export default function Vehicles() {
 
     try {
       if (editingVehicle) {
-        await postForm(`/api/vehicles/${editingVehicle.id}`, body);
+        await postForm(`/api/vehicles/${editingVehicle.uuid}`, body);
       } else {
         await postForm('/api/vehicles', body);
       }
@@ -309,7 +333,7 @@ export default function Vehicles() {
     }
 
     try {
-      await apiClient.delete(`/api/vehicles/${vehicle.id}`);
+      await apiClient.delete(`/api/vehicles/${vehicle.uuid}`);
       await loadVehicles();
     } catch (err: unknown) {
       if (isAxiosError(err)) {
@@ -375,6 +399,9 @@ export default function Vehicles() {
           {!loading && error && (
             <div className="mx-2 mb-2 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">{error}</div>
           )}
+          {!loading && !error && routeId && !vehicles.some((vehicle) => vehicle.uuid === routeId) && (
+            <div className="mx-2 mb-2 rounded-lg bg-red-500/10 text-red-500 text-sm px-3 py-2">Vehicle not found.</div>
+          )}
 
           {!loading && !error && vehicles.length === 0 && (
             <div className="px-2 py-8 text-sm text-center text-gray-500 dark:text-gray-400">No vehicles found.</div>
@@ -408,15 +435,21 @@ export default function Vehicles() {
                             )}
                           </div>
                           <div>
-                            <div className="font-medium text-gray-800 dark:text-gray-100">{vehicle.name}</div>
+                            <Link to={`/vehicles/${vehicle.uuid}`} className="font-medium text-violet-600 dark:text-violet-400 hover:underline">
+                              {vehicle.name}
+                            </Link>
                             {vehicle.engine_size && (
                               <div className="text-xs text-gray-500 dark:text-gray-400">{vehicle.engine_size}</div>
                             )}
                           </div>
                         </div>
                       </td>
-                      <td className="p-2 whitespace-nowrap text-gray-600 dark:text-gray-300">
-                        {customerDisplayName(vehicle.customer)}
+                      <td className="p-2 whitespace-nowrap">
+                        {vehicle.customer ? (
+                          <Link to={`/customers/${vehicle.customer.uuid}`} className="text-violet-600 dark:text-violet-400 hover:underline">
+                            {customerDisplayName(vehicle.customer)}
+                          </Link>
+                        ) : '—'}
                       </td>
                       <td className="p-2 whitespace-nowrap text-gray-600 dark:text-gray-300">{vehicle.vin || '—'}</td>
                       <td className="p-2 whitespace-nowrap text-gray-600 dark:text-gray-300">

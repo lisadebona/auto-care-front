@@ -61,7 +61,7 @@ export default function CannedJobs() {
     }
 
     try {
-      await apiClient.delete(`/api/canned-jobs/${job.id}`);
+      await apiClient.delete(`/api/canned-jobs/${job.uuid}`);
       await loadCannedJobs();
     } catch (err: unknown) {
       if (isAxiosError(err)) {
@@ -127,7 +127,7 @@ export default function CannedJobs() {
                     <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                     <td className="px-5 py-3">
                       <Link
-                        to={`/canned-jobs/${job.id}`}
+                        to={`/canned-jobs/${job.uuid}`}
                         className="font-medium text-violet-600 dark:text-violet-400 hover:underline"
                       >
                         {job.name}
@@ -139,7 +139,7 @@ export default function CannedJobs() {
                     </td>
                     <td className="px-5 py-3 text-right space-x-1">
                       {hasPermission('canned-jobs.edit') && (
-                        <EditButton onClick={() => navigate(`/canned-jobs/${job.id}`)} />
+                        <EditButton onClick={() => navigate(`/canned-jobs/${job.uuid}`)} />
                       )}
                       {hasPermission('canned-jobs.delete') && (
                         <DeleteButton onClick={() => { void handleDelete(job); }} />

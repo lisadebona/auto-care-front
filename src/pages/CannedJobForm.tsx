@@ -154,7 +154,7 @@ export default function CannedJobForm() {
         if (closeAfter) {
           navigate('/canned-jobs');
         } else {
-          navigate(`/canned-jobs/${response.data.canned_job.id}`, { replace: true });
+          navigate(`/canned-jobs/${response.data.canned_job.uuid}`, { replace: true });
         }
       } else {
         await apiClient.put(`/api/canned-jobs/${id}`, payload);

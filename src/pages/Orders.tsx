@@ -64,7 +64,7 @@ export default function Orders() {
     }
 
     try {
-      await apiClient.delete(`/api/estimates/${order.id}`);
+      await apiClient.delete(`/api/estimates/${order.uuid}`);
       await loadOrders();
     } catch (err: unknown) {
       if (isAxiosError(err)) {
@@ -124,7 +124,7 @@ export default function Orders() {
                     <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{table.offset + index + 1}</td>
                     <td className="px-5 py-3">
                       <Link
-                        to={`/orders/${order.id}`}
+                        to={`/orders/${order.uuid}`}
                         className="font-medium text-violet-600 dark:text-violet-400 hover:underline"
                       >
                         {order.order_number ?? '—'}
@@ -133,11 +133,19 @@ export default function Orders() {
                     <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
                       {order.display_number}
                     </td>
-                    <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
-                      {order.customer?.name ?? '—'}
+                    <td className="px-5 py-3">
+                      {order.customer ? (
+                        <Link to={`/customers/${order.customer.uuid}`} className="text-violet-600 dark:text-violet-400 hover:underline">
+                          {order.customer.name}
+                        </Link>
+                      ) : '—'}
                     </td>
-                    <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
-                      {order.vehicle?.name ?? '—'}
+                    <td className="px-5 py-3">
+                      {order.vehicle ? (
+                        <Link to={`/vehicles/${order.vehicle.uuid}`} className="text-violet-600 dark:text-violet-400 hover:underline">
+                          {order.vehicle.name}
+                        </Link>
+                      ) : '—'}
                     </td>
                     <td className="px-5 py-3">
                       <span className="inline-flex rounded-full bg-gray-100 dark:bg-gray-700 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-200">
@@ -150,7 +158,7 @@ export default function Orders() {
                     <td className="px-5 py-3 text-right space-x-1">
                       {hasPermission('estimates.edit') && (
                         <EditButton
-                          onClick={() => navigate(`/orders/${order.id}`)}
+                          onClick={() => navigate(`/orders/${order.uuid}`)}
                         />
                       )}
                       {hasPermission('estimates.delete') && (
